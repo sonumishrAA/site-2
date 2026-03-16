@@ -30,7 +30,7 @@ export default async function DashboardPage() {
   // Parallel data fetching
   const [
     { count: totalStudents },
-    { count: activeSeatsCount },
+    { data: activeSeatsData },
     { data: pendingStudents },
     { data: partialStudents },
     { data: paidStudentsThisMonth },
@@ -43,8 +43,8 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     // Total students
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId),
-    // Active seats (unique occupied seat-shifts)
-    supabase.from('student_seat_shifts').select('seat_id, seats!inner(library_id)', { count: 'exact', head: true }).eq('seats.library_id', libraryId).gte('end_date', today),
+    // Active seats (non-expired students)
+    supabase.from('students').select('seat_id', { count: 'exact', head: false }).eq('library_id', libraryId).gte('end_date', today),
     // Pending fee students
     supabase.from('students').select('total_fee').eq('library_id', libraryId).eq('payment_status', 'pending'),
     // Partial payment students
@@ -59,8 +59,8 @@ export default async function DashboardPage() {
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).gte('admission_date', monthStart).lte('admission_date', monthEnd),
     // Library shifts config
     supabase.from('shifts').select('code, name').eq('library_id', libraryId),
-    // Active shift occupancy
-    supabase.from('student_seat_shifts').select('shift_code, seats!inner(library_id)').eq('seats.library_id', libraryId).gte('end_date', today),
+    // Active shift occupancy (count per shift)
+    supabase.from('students').select('selected_shifts').eq('library_id', libraryId).gte('end_date', today),
     // Total seats
     supabase.from('seats').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('is_active', true),
   ])
@@ -80,11 +80,15 @@ export default async function DashboardPage() {
   const partialCount = partialStudents?.length || 0
   const partialRemaining = partialStudents?.reduce((acc, s) => acc + (Number(s.total_fee || 0) - Number(s.amount_paid || 0)), 0) || 0
 
-  // Build shift occupancy stats
+  // Count unique active seats
+  const uniqueActiveSeatIds = new Set(activeSeatsData?.map((s: any) => s.seat_id).filter(Boolean))
+  const activeSeatNum = uniqueActiveSeatIds.size
+
+  // Build shift occupancy stats from students' selected_shifts
   const shiftCodes = shifts?.map(s => s.code) || ['M', 'A', 'E', 'N']
   const shiftNames: Record<string, string> = { M: 'Morning', A: 'Afternoon', E: 'Evening', N: 'Night' }
   const shiftStats = shiftCodes.map(code => {
-    const activeInShift = shiftOccupancy?.filter((so: any) => so.shift_code === code).length || 0
+    const activeInShift = shiftOccupancy?.filter((s: any) => s.selected_shifts?.includes(code)).length || 0
     return {
       code,
       name: shifts?.find(s => s.code === code)?.name || shiftNames[code] || code,
@@ -146,7 +150,7 @@ export default async function DashboardPage() {
           <div className="w-9 h-9 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-3">
             <Grid className="w-5 h-5" />
           </div>
-          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{activeSeatsCount || 0}</p>
+          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{activeSeatNum}<span className="text-sm text-gray-400 font-bold">/{totalSeats || 0}</span></p>
           <p className="text-[9px] uppercase font-bold text-gray-400 mt-1.5 tracking-wider">Active Seats</p>
         </div>
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
