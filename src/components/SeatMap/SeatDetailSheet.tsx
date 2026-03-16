@@ -140,15 +140,19 @@ export default function SeatDetailSheet({
                       </div>
 
                       {/* Right side info & Caret */}
-                      <div className="flex items-center gap-2">
+                       <div className="flex items-center gap-2">
                         {shift.status !== 'vacant' && activeStudent && (
                           <div className={cn(
                             "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
                             activeStudent.payment_status === 'paid'
                               ? "bg-green-50 text-green-600 border-green-100"
-                              : "bg-amber-50 text-amber-600 border-amber-100"
+                              : activeStudent.payment_status === 'partial'
+                                ? "bg-blue-50 text-blue-600 border-blue-100"
+                                : activeStudent.payment_status === 'discounted'
+                                  ? "bg-green-50 text-green-600 border-green-100"
+                                  : "bg-amber-50 text-amber-600 border-amber-100"
                           )}>
-                            {activeStudent.payment_status}
+                            {activeStudent.payment_status === 'discounted' ? 'Paid*' : activeStudent.payment_status === 'partial' ? 'Partial' : activeStudent.payment_status}
                           </div>
                         )}
                         {shift.status === 'vacant' ? (

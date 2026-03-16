@@ -111,11 +111,11 @@ const PaymentBadge = ({
         className={cn(
           "font-black uppercase border rounded flex items-center justify-center transition-all",
           isExpanded
-            ? "text-[10px] px-1.5 py-0.5 text-purple-600 bg-purple-100/50 border-purple-200"
-            : "text-[8px] px-1 text-purple-500 bg-purple-50 border-purple-100",
+            ? "text-[10px] px-1.5 py-0.5 text-green-600 bg-green-100/50 border-green-200"
+            : "text-[8px] px-1 text-green-500 bg-green-50 border-green-100",
         )}
       >
-        Disc
+        Paid*
       </span>
     );
 

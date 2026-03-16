@@ -59,18 +59,25 @@ export default function StudentList({ students }: { students: any[] }) {
                             Renew
                           </button>
                         ) : (
-                          <div className={cn(
-                            "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
-                            student.payment_status === 'paid' 
-                              ? "bg-green-50 text-green-600 border-green-100" 
-                              : student.payment_status === 'partial'
-                                ? "bg-blue-50 text-blue-600 border-blue-100"
-                                : student.payment_status === 'discounted'
-                                  ? "bg-purple-50 text-purple-600 border-purple-100"
-                                  : "bg-amber-50 text-amber-600 border-amber-100"
-                          )}>
-                            {student.payment_status}
-                          </div>
+                          <>
+                            <div className={cn(
+                              "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
+                              student.payment_status === 'paid' 
+                                ? "bg-green-50 text-green-600 border-green-100" 
+                                : student.payment_status === 'partial'
+                                  ? "bg-blue-50 text-blue-600 border-blue-100"
+                                  : student.payment_status === 'discounted'
+                                    ? "bg-green-50 text-green-600 border-green-100"
+                                    : "bg-amber-50 text-amber-600 border-amber-100"
+                            )}>
+                              {student.payment_status === 'discounted' ? 'Paid*' : student.payment_status === 'partial' ? 'Partial' : student.payment_status}
+                            </div>
+                            {student.payment_status === 'partial' && (
+                              <span className="text-[8px] font-bold text-red-500">
+                                Due: ₹{(student.total_fee || 0) - (student.amount_paid || 0)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
