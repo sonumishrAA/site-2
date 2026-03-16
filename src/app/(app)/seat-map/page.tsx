@@ -1,0 +1,178 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import InteractiveGrid from '@/components/SeatMap/InteractiveGrid'
+import { getSeatStatus, daysUntil, sortSeats } from '@/lib/utils'
+
+export default async function SeatMapPage() {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: staff } = await supabase
+    .from('staff')
+    .select('library_ids')
+    .eq('user_id', user.id)
+    .single()
+
+  const libraryId = staff?.library_ids?.[0]
+  if (!libraryId) return <div>No library assigned.</div>
+
+  // Fetch seats with students AND per-shift occupancy
+  const { data: seatData, error } = await supabase
+    .from('seats')
+    .select(`
+      id,
+      seat_number,
+      gender,
+      students (
+        id,
+        name,
+        phone,
+        father_name,
+        address,
+        end_date,
+        shift_display,
+        selected_shifts,
+        locker_id,
+        payment_status,
+        total_fee,
+        plan_months
+      )
+    `)
+    .eq('library_id', libraryId)
+    .eq('is_active', true)
+
+  if (error) return <div>Error loading seats.</div>
+
+  // Fetch library shifts config (to know which shifts this library has)
+  const [{ data: shifts }, { data: comboPlans }] = await Promise.all([
+    supabase.from('shifts').select('code, name').eq('library_id', libraryId),
+    supabase.from('combo_plans').select('*').eq('library_id', libraryId).order('months')
+  ])
+
+  const shiftCodes = shifts?.map(s => s.code) || ['M', 'A', 'E', 'N']
+
+  // Natural sort seats
+  const sortedSeatData = sortSeats(seatData || [])
+
+  const seatsWithStatus = sortedSeatData.map(seat => {
+    const students = (seat as any).students || []
+    const today = new Date()
+    const activeStudents = students.filter((s: any) => new Date(s.end_date) >= today)
+    const expiredStudents = students.filter((s: any) => new Date(s.end_date) < today)
+
+    let earliestExpiry = null
+    if (activeStudents.length > 0) {
+      earliestExpiry = Math.min(...activeStudents.map((s: any) => new Date(s.end_date).getTime()))
+    }
+
+    const daysLeft = earliestExpiry ? daysUntil(new Date(earliestExpiry).toISOString()) : null
+    const status = getSeatStatus(activeStudents.length, daysLeft, expiredStudents.length)
+
+    // Build per-shift occupancy
+    const shiftOccupancy = shiftCodes.map(code => {
+      // Find a student who has this shift selected and is active
+      const activeStudent = activeStudents.find((s: any) => s.selected_shifts?.includes(code))
+      const expiredStudent = expiredStudents.find((s: any) => s.selected_shifts?.includes(code))
+
+      if (activeStudent) {
+        const sDaysLeft = daysUntil(activeStudent.end_date)
+        return {
+          shift: code,
+          status: sDaysLeft <= 7 ? 'expiring' as const : 'occupied' as const,
+          studentName: activeStudent.name,
+          endDate: activeStudent.end_date,
+          daysLeft: sDaysLeft,
+          student: activeStudent
+        }
+      }
+      if (expiredStudent) {
+        return {
+          shift: code,
+          status: 'expired' as const,
+          studentName: expiredStudent.name,
+          endDate: expiredStudent.end_date,
+          daysLeft: daysUntil(expiredStudent.end_date),
+          student: expiredStudent
+        }
+      }
+      return {
+        shift: code,
+        status: 'vacant' as const,
+        studentName: null,
+        endDate: null,
+        daysLeft: null,
+        student: null
+      }
+    })
+
+    return {
+      id: seat.id,
+      seat_number: seat.seat_number,
+      gender: seat.gender,
+      status,
+      daysLeft,
+      shiftDisplay: activeStudents[0]?.shift_display || expiredStudents[0]?.shift_display || '',
+      hasLocker: activeStudents.some((s: any) => s.locker_id) || expiredStudents.some((s: any) => s.locker_id),
+      shiftOccupancy,
+      // Pass full student details for the detail sheet
+      active_student: activeStudents[0] ? {
+        id: activeStudents[0].id,
+        name: activeStudents[0].name,
+        phone: activeStudents[0].phone || '',
+        shift_display: activeStudents[0].shift_display,
+        end_date: activeStudents[0].end_date,
+        payment_status: activeStudents[0].payment_status,
+        has_locker: !!activeStudents[0].locker_id,
+        total_fee: activeStudents[0].total_fee,
+      } : undefined,
+      expired_student: expiredStudents[0] ? {
+        id: expiredStudents[0].id,
+        name: expiredStudents[0].name,
+        end_date: expiredStudents[0].end_date,
+      } : undefined,
+    }
+  })
+
+  return (
+    <div className="pb-24">
+      <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-14 z-20 flex items-center justify-between">
+        <h2 className="text-xl font-serif text-brand-900 leading-none">Seat Map</h2>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
+            <div className="w-2 h-2 rounded-full bg-brand-500" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{seatsWithStatus.filter(s => s.status === 'occupied' || s.status === 'expiring').length}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
+            <div className="w-2 h-2 rounded-full bg-gray-200" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{seatsWithStatus.filter(s => s.status === 'free').length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <InteractiveGrid initialSeats={seatsWithStatus} comboPlans={comboPlans || []} />
+
+        <div className="mt-10 grid grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-lg bg-brand-100 border-2 border-brand-500" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Occupied</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-lg bg-amber-100 border-2 border-amber-500" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Expiring Soon</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-lg bg-red-100 border-2 border-red-500" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Expired</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-lg bg-white border-2 border-gray-200" />
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Available</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

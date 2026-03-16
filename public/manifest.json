@@ -1,0 +1,17 @@
+{
+  "name": "LibraryOS Manager",
+  "short_name": "LibraryOS",
+  "description": "Management App for Library Owners",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0F1F5C",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
