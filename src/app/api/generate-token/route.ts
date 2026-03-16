@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { signCrossSiteToken } from '@/lib/jwt'
 
 export async function POST(request: NextRequest) {
@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is owner and owner owns this library (if renew)
-    const { data: staffRows } = await supabase
+    // Use admin client to bypass RLS for checking staff roles across all libraries
+    const adminSupabase = createAdminClient()
+    const { data: staffRows } = await adminSupabase
       .from('staff')
       .select('name, phone, role, library_ids')
       .eq('user_id', user.id)
