@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Verify role is owner and owner owns this library (if renew)
     const { data: staff } = await supabase
       .from('staff')
-      .select('role, library_ids')
+      .select('name, phone, role, library_ids')
       .eq('user_id', user.id)
       .single()
 
@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
     const token = signCrossSiteToken({
       owner_id: user.id,
       owner_email: user.email,
+      owner_name: staff.name,
+      owner_phone: staff.phone,
       library_id: purpose === 'renew' ? library_id : undefined,
       purpose
     })
