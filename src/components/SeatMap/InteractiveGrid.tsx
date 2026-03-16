@@ -21,7 +21,7 @@ export default function InteractiveGrid({ initialSeats, comboPlans }: { initialS
             key={seat.id}
             seatNumber={seat.seat_number}
             status={seat.status}
-            shiftOccupancy={seat.shiftOccupancy}
+            shiftDisplay={seat.shiftDisplay}
             hasLocker={seat.hasLocker}
             onClick={() => handleSeatClick(seat)}
             animationDelay={index * 30}
