@@ -1,33 +1,40 @@
 'use client'
 
+import { useState } from 'react'
 import SeatBox from './SeatBox'
-import { SeatStatus } from '@/lib/utils'
+import SeatDetailSheet from './SeatDetailSheet'
 
-interface Seat {
-  id: string
-  seat_number: string
-  status: SeatStatus
-  shiftDisplay: string
-  daysLeft: number | null
-  hasLocker: boolean
-}
+export default function InteractiveGrid({ initialSeats, comboPlans }: { initialSeats: any[], comboPlans: any[] }) {
+  const [selectedSeat, setSelectedSeat] = useState<any | null>(null)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
 
-export default function SeatGrid({ seats }: { seats: Seat[] }) {
+  const handleSeatClick = (seat: any) => {
+    setSelectedSeat(seat)
+    setIsSheetOpen(true)
+  }
+
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
-      {seats.map((seat) => (
-        <SeatBox
-          key={seat.id}
-          seatNumber={seat.seat_number}
-          status={seat.status}
-          shiftOccupancy={[]}
-          hasLocker={seat.hasLocker}
-          onClick={() => {
-            console.log('Seat clicked:', seat.seat_number)
-            // Yahan hum baad mein Bottom Sheet open karne ka logic dalenge
-          }}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+        {initialSeats.map((seat, index) => (
+          <SeatBox
+            key={seat.id}
+            seatNumber={seat.seat_number}
+            status={seat.status}
+            shiftDisplay={seat.shiftDisplay}
+            hasLocker={seat.hasLocker}
+            onClick={() => handleSeatClick(seat)}
+            animationDelay={index * 30}
+          />
+        ))}
+      </div>
+
+      <SeatDetailSheet
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        detail={selectedSeat}
+        comboPlans={comboPlans}
+      />
+    </>
   )
 }
