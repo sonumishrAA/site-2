@@ -76,6 +76,15 @@ export async function submitNewAdmission(data: any) {
       await adminClient.from('lockers').update({ status: 'occupied' }).eq('id', data.locker_id)
     }
 
+    // 5. Insert Notification
+    await adminClient.from('notifications').insert({
+      library_id: data.library_id,
+      type: 'new_admission',
+      title: 'New Admission',
+      message: `${data.name} admitted to seat ${data.shift_display}. Fee: ₹${data.total_fee} (${data.payment_status}).`,
+      is_read: false
+    })
+
     revalidatePath('/')
     return { success: true }
   } catch (error: any) {
@@ -148,6 +157,19 @@ export async function updateStudent(studentId: string, data: any) {
       await adminClient.from('lockers').update({ status: 'occupied' }).eq('id', data.locker_id)
     }
 
+    // 4. Insert Notification
+    // Get library_id from student
+    const { data: studentData } = await adminClient.from('students').select('library_id').eq('id', studentId).single()
+    if (studentData) {
+      await adminClient.from('notifications').insert({
+        library_id: studentData.library_id,
+        type: 'student_updated',
+        title: 'Student Updated',
+        message: `${data.name}'s profile updated. Shifts: ${data.shifts.sort().join('+')}.`,
+        is_read: false
+      })
+    }
+
     revalidatePath('/')
     return { success: true }
   } catch (error: any) {
@@ -218,6 +240,18 @@ export async function renewStudent(data: any) {
     }
     if (data.locker_id) {
       await adminClient.from('lockers').update({ status: 'occupied' }).eq('id', data.locker_id)
+    }
+
+    // 6. Insert Notification
+    const { data: renewedStudent } = await adminClient.from('students').select('library_id, name').eq('id', data.student_id).single()
+    if (renewedStudent) {
+      await adminClient.from('notifications').insert({
+        library_id: renewedStudent.library_id,
+        type: 'student_renewed',
+        title: 'Plan Renewed',
+        message: `${renewedStudent.name} renewed for ${data.plan_months} month(s). Fee: ₹${data.total_fee} (${data.payment_status}).`,
+        is_read: false
+      })
     }
 
     revalidatePath('/')

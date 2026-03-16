@@ -1,8 +1,10 @@
 import ExpiredStudentsCard from '@/components/Dashboard/ExpiredStudentsCard'
-import { Users, Grid, CreditCard, Clock, Bell } from 'lucide-react'
+import ShiftOccupancyCard from '@/components/Dashboard/ShiftOccupancyCard'
+import { Users, Grid, CreditCard, Clock, Bell, TrendingUp, AlertTriangle, UserPlus, IndianRupee } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { daysUntil } from '@/lib/utils'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -10,42 +12,92 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Get library context
   const { data: staff } = await supabase
     .from('staff')
-    .select('library_ids')
+    .select('library_ids, name')
     .eq('user_id', user.id)
     .single()
 
   const libraryId = staff?.library_ids?.[0]
   if (!libraryId) return <div>No library assigned.</div>
-// Parallel data fetching for stats
-const today = new Date().toISOString().split('T')[0]
-const [
-  { count: studentCount },
-  { count: activeSeatsCount },
-  { data: pendingFees },
-  { data: expiredStudents, count: expiredCount },
-  { data: notifications }
-] = await Promise.all([
-  supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId),
-  supabase.from('student_seat_shifts').select('seat_id, seats!inner(library_id)', { count: 'exact', head: true }).eq('seats.library_id', libraryId).gte('end_date', today),
-  supabase.from('students').select('total_fee').eq('library_id', libraryId).eq('payment_status', 'pending'),
-  supabase.from('students').select('id, name, end_date, seat_id').eq('library_id', libraryId).lt('end_date', today),
-  supabase.from('notifications').select('*').eq('library_id', libraryId).eq('is_read', false).order('created_at', { ascending: false }).limit(3)
-])
-const totalPending = pendingFees?.reduce((acc, curr) => acc + Number(curr.total_fee), 0) || 0
 
-const stats = [
-  { label: 'Total Students', value: studentCount || 0, icon: Users, color: 'bg-blue-100 text-blue-600' },
-  { label: 'Active Seats', value: activeSeatsCount || 0, icon: Grid, color: 'bg-green-100 text-green-600' },
-  { label: 'Pending Fees', value: `₹${totalPending}`, icon: CreditCard, color: 'bg-amber-100 text-amber-600' },
-  { label: 'Expired', value: expiredCount || 0, icon: Clock, color: 'bg-red-100 text-red-600' },
-]
+  // Current month boundaries
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
+
+  // Parallel data fetching
+  const [
+    { count: totalStudents },
+    { count: activeSeatsCount },
+    { data: pendingStudents },
+    { data: partialStudents },
+    { data: paidStudentsThisMonth },
+    { data: expiredStudents, count: expiredCount },
+    { data: notifications },
+    { count: newAdmissionsThisMonth },
+    { data: shifts },
+    { data: shiftOccupancy },
+    { count: totalSeats },
+  ] = await Promise.all([
+    // Total students
+    supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId),
+    // Active seats (unique occupied seat-shifts)
+    supabase.from('student_seat_shifts').select('seat_id, seats!inner(library_id)', { count: 'exact', head: true }).eq('seats.library_id', libraryId).gte('end_date', today),
+    // Pending fee students
+    supabase.from('students').select('total_fee').eq('library_id', libraryId).eq('payment_status', 'pending'),
+    // Partial payment students
+    supabase.from('students').select('total_fee, amount_paid').eq('library_id', libraryId).eq('payment_status', 'partial'),
+    // Paid/discounted students this month (collected fee)
+    supabase.from('students').select('total_fee, amount_paid, discount_amount, payment_status').eq('library_id', libraryId).gte('admission_date', monthStart).lte('admission_date', monthEnd).in('payment_status', ['paid', 'discounted', 'partial']),
+    // Expired students
+    supabase.from('students').select('id, name, end_date, seat_id').eq('library_id', libraryId).lt('end_date', today),
+    // Recent notifications
+    supabase.from('notifications').select('*').eq('library_id', libraryId).eq('is_read', false).order('created_at', { ascending: false }).limit(5),
+    // New admissions this month
+    supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).gte('admission_date', monthStart).lte('admission_date', monthEnd),
+    // Library shifts config
+    supabase.from('shifts').select('code, name').eq('library_id', libraryId),
+    // Active shift occupancy
+    supabase.from('student_seat_shifts').select('shift_code, seats!inner(library_id)').eq('seats.library_id', libraryId).gte('end_date', today),
+    // Total seats
+    supabase.from('seats').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('is_active', true),
+  ])
+
+  // Calculate collected fee this month
+  const collectedThisMonth = paidStudentsThisMonth?.reduce((acc, s) => {
+    if (s.payment_status === 'paid') return acc + Number(s.total_fee || 0)
+    if (s.payment_status === 'discounted') return acc + Number(s.total_fee || 0) - Number(s.discount_amount || 0)
+    if (s.payment_status === 'partial') return acc + Number(s.amount_paid || 0)
+    return acc
+  }, 0) || 0
+
+  // Pending fees total
+  const totalPending = pendingStudents?.reduce((acc, curr) => acc + Number(curr.total_fee), 0) || 0
+
+  // Partial payment remaining  
+  const partialCount = partialStudents?.length || 0
+  const partialRemaining = partialStudents?.reduce((acc, s) => acc + (Number(s.total_fee || 0) - Number(s.amount_paid || 0)), 0) || 0
+
+  // Build shift occupancy stats
+  const shiftCodes = shifts?.map(s => s.code) || ['M', 'A', 'E', 'N']
+  const shiftNames: Record<string, string> = { M: 'Morning', A: 'Afternoon', E: 'Evening', N: 'Night' }
+  const shiftStats = shiftCodes.map(code => {
+    const activeInShift = shiftOccupancy?.filter((so: any) => so.shift_code === code).length || 0
+    return {
+      code,
+      name: shifts?.find(s => s.code === code)?.name || shiftNames[code] || code,
+      active: activeInShift,
+      total: totalSeats || 0,
+    }
+  })
+
+  const monthName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="p-4 space-y-6 pb-24">
-      {/* 1. Action Needed Card for Expired Students */}
+    <div className="p-4 space-y-5 pb-24">
+      {/* Expired Students Warning */}
       {expiredCount && expiredCount > 0 ? (
         <ExpiredStudentsCard 
           count={expiredCount} 
@@ -57,44 +109,92 @@ const stats = [
         />
       ) : null}
 
-      {/* 2. Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <div className={`w-8 h-8 rounded-lg ${stat.color} flex items-center justify-center mb-3`}>
-              <stat.icon className="w-5 h-5" />
+      {/* Monthly Overview Header */}
+      <div className="bg-gradient-to-br from-brand-900 to-brand-800 rounded-2xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-1">{monthName}</p>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-3xl font-black font-mono leading-none">₹{collectedThisMonth.toLocaleString('en-IN')}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">Fee Collected</p>
+          </div>
+          <div className="text-right space-y-1">
+            <div>
+              <p className="text-lg font-black font-mono leading-none text-amber-300">₹{totalPending.toLocaleString('en-IN')}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-white/40">Pending</p>
             </div>
-            <p className="text-2xl font-bold text-gray-950 font-mono leading-none">{stat.value}</p>
-            <p className="text-[10px] uppercase font-bold text-gray-400 mt-2 tracking-wider">{stat.label}</p>
+            {partialCount > 0 && (
+              <div>
+                <p className="text-sm font-black font-mono leading-none text-blue-300">₹{partialRemaining.toLocaleString('en-IN')}</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-white/40">Partial Due ({partialCount})</p>
+              </div>
+            )}
           </div>
-        ) )}
+        </div>
       </div>
 
-      {/* 3. Quick Actions (Placeholder for now) */}
-      <div className="grid grid-cols-2 gap-4">
-        <button className="bg-brand-500 text-white p-4 rounded-2xl flex flex-col items-center justify-center gap-2 shadow-lg shadow-brand-500/20 active:scale-95 transition-transform">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+            <Users className="w-5 h-5" />
+          </div>
+          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{totalStudents || 0}</p>
+          <p className="text-[9px] uppercase font-bold text-gray-400 mt-1.5 tracking-wider">Total Students</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-3">
+            <Grid className="w-5 h-5" />
+          </div>
+          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{activeSeatsCount || 0}</p>
+          <p className="text-[9px] uppercase font-bold text-gray-400 mt-1.5 tracking-wider">Active Seats</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-3">
+            <UserPlus className="w-5 h-5" />
+          </div>
+          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{newAdmissionsThisMonth || 0}</p>
+          <p className="text-[9px] uppercase font-bold text-gray-400 mt-1.5 tracking-wider">New This Month</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center mb-3">
+            <Clock className="w-5 h-5" />
+          </div>
+          <p className="text-2xl font-black text-gray-950 font-mono leading-none">{expiredCount || 0}</p>
+          <p className="text-[9px] uppercase font-bold text-gray-400 mt-1.5 tracking-wider">Expired</p>
+        </div>
+      </div>
+
+      {/* Shift Occupancy */}
+      <ShiftOccupancyCard shifts={shiftStats} />
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/students" className="bg-brand-500 text-white p-4 rounded-2xl flex flex-col items-center justify-center gap-2 shadow-lg shadow-brand-500/20 active:scale-95 transition-transform">
           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <Users className="w-6 h-6" />
+            <UserPlus className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider">New Admission</span>
-        </button>
-        <button className="bg-white border border-gray-200 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+          <span className="text-[10px] font-bold uppercase tracking-widest">New Admission</span>
+        </Link>
+        <Link href="/seat-map" className="bg-white border border-gray-200 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
           <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
-            <CreditCard className="w-6 h-6" />
+            <Grid className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-600">Collect Fee</span>
-        </button>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Seat Map</span>
+        </Link>
       </div>
 
-      {/* 4. Recent Notifications */}
+      {/* Recent Notifications */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Recent Alerts</h3>
-          <Bell className="w-4 h-4 text-gray-400" />
+          <Link href="/notifications">
+            <Bell className="w-4 h-4 text-gray-400 hover:text-brand-500 transition-colors" />
+          </Link>
         </div>
         <div className="divide-y divide-gray-50">
           {notifications && notifications.length > 0 ? (
-            notifications.map(notif => (
+            notifications.map((notif: any) => (
               <div key={notif.id} className="p-4 flex gap-3">
                 <div className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 shrink-0" />
                 <div className="space-y-0.5">

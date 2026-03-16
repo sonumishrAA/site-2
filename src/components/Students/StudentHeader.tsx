@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Upload, Search } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Plus, Upload, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import NewAdmissionSheet from './NewAdmissionSheet'
 
@@ -15,12 +16,31 @@ interface Filter {
 
 export default function StudentHeader({ 
   currentFilter, 
-  filters 
+  filters,
+  searchQuery: initialSearch 
 }: { 
   currentFilter: string
-  filters: Filter[] 
+  filters: Filter[]
+  searchQuery?: string 
 }) {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [search, setSearch] = useState(initialSearch || '')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Debounced search navigation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (search) {
+        params.set('q', search)
+      } else {
+        params.delete('q')
+      }
+      router.push(`/students?${params.toString()}`)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
   return (
     <>
@@ -47,9 +67,19 @@ export default function StudentHeader({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
             type="text" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or seat..."
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all outline-none"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-10 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all outline-none"
           />
+          {search && (
+            <button 
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+            >
+              <X className="w-3 h-3 text-gray-500" />
+            </button>
+          )}
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">

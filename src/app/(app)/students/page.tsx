@@ -37,11 +37,13 @@ export default async function StudentsPage({
     { count: allCount },
     { count: paidCount },
     { count: pendingCount },
+    { count: partialCount },
     { count: expiredCount }
   ] = await Promise.all([
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('payment_status', 'paid'),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('payment_status', 'pending'),
+    supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('payment_status', 'partial'),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).lt('end_date', new Date().toISOString().split('T')[0]),
   ])
 
@@ -75,8 +77,9 @@ export default async function StudentsPage({
 
   if (currentFilter === 'paid') query = query.eq('payment_status', 'paid')
   if (currentFilter === 'pending') query = query.eq('payment_status', 'pending')
+  if (currentFilter === 'partial') query = query.eq('payment_status', 'partial')
   if (currentFilter === 'expired') query = query.lt('end_date', new Date().toISOString().split('T')[0])
-  if (searchQuery) query = query.ilike('name', `%${searchQuery}%`)
+  if (searchQuery) query = query.or(`name.ilike.%${searchQuery}%,seats.seat_number.ilike.%${searchQuery}%`)
 
   const { data: students } = await query
 
@@ -84,12 +87,13 @@ export default async function StudentsPage({
     { label: 'All', value: 'all', count: allCount || 0, color: 'bg-gray-100 text-gray-600' },
     { label: 'Paid', value: 'paid', count: paidCount || 0, color: 'bg-green-100 text-green-700' },
     { label: 'Pending', value: 'pending', count: pendingCount || 0, color: 'bg-amber-100 text-amber-700' },
+    { label: 'Partial', value: 'partial', count: partialCount || 0, color: 'bg-blue-100 text-blue-700' },
     { label: 'Expired', value: 'expired', count: expiredCount || 0, color: 'bg-red-100 text-red-700' },
   ]
 
   return (
     <div className="pb-24 max-w-7xl mx-auto w-full">
-      <StudentHeader currentFilter={currentFilter} filters={filters} />
+      <StudentHeader currentFilter={currentFilter} filters={filters} searchQuery={searchQuery} />
 
       {students && students.length > 0 ? (
         <StudentList students={students} />
