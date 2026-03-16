@@ -6,8 +6,9 @@ import StudentList from '@/components/Students/StudentList'
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: { filter?: string; q?: string }
+  searchParams: Promise<{ filter?: string; q?: string }>
 }) {
+  const resolvedParams = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -29,8 +30,8 @@ export default async function StudentsPage({
 
   if (!libraryId) return <div className="p-8 text-center text-gray-500 italic">No library context found.</div>
 
-  const currentFilter = searchParams.filter || 'all'
-  const searchQuery = searchParams.q || ''
+  const currentFilter = resolvedParams.filter || 'all'
+  const searchQuery = resolvedParams.q || ''
 
   const [
     { count: allCount },

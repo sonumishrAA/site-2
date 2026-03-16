@@ -16,7 +16,7 @@ export default function InteractiveGrid({
 
   return (
     <>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 auto-rows-max w-full overflow-x-auto pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 auto-rows-max w-full overflow-x-auto pb-2">
         {initialSeats.map((seat, index) => (
           <SeatBox
             key={seat.id}
