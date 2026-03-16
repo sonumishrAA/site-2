@@ -237,7 +237,7 @@ export async function updateStudent(studentId: string, data: any) {
     if (studentData) {
       await adminClient.from('notifications').insert({
         library_id: studentData.library_id,
-        type: 'student_updated',
+        type: 'seat_changed',
         title: 'Student Updated',
         message: `${data.name}'s profile updated. Shifts: ${data.shifts.sort().join('+')}. By ${staffName}.`,
         is_read: false
@@ -433,7 +433,7 @@ export async function deleteStudent(
     // Insert Notification  
     await adminClient.from('notifications').insert({
       library_id: student.library_id,
-      type: 'student_deleted',
+      type: 'data_cleanup_warning',
       title: 'Student Removed',
       message: `${studentName} (${student.shift_display}) removed.${refundAmount > 0 ? ` Refund: ₹${refundAmount}.` : ' No refund.'} By ${staffName}.`,
       is_read: false

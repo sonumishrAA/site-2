@@ -11,8 +11,8 @@ const getIcon = (type: string) => {
     case 'new_admission': return <UserPlus className="w-4 h-4 text-green-500" />
     case 'fee_collected': return <CreditCard className="w-4 h-4 text-blue-500" />
     case 'student_renewed': return <RefreshCcw className="w-4 h-4 text-purple-500" />
-    case 'student_updated': return <Edit className="w-4 h-4 text-brand-500" />
-    case 'student_deleted': return <Trash2 className="w-4 h-4 text-red-500" />
+    case 'seat_changed': return <Edit className="w-4 h-4 text-brand-500" />
+    case 'data_cleanup_warning': return <Trash2 className="w-4 h-4 text-red-500" />
     case 'expiry_warning': return <AlertTriangle className="w-4 h-4 text-amber-500" />
     default: return <Bell className="w-4 h-4 text-gray-500" />
   }
