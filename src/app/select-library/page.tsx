@@ -32,7 +32,7 @@ export default function SelectLibraryPage() {
 
       const { data: staff } = await supabaseBrowser
         .from('staff')
-        .select('library_ids')
+        .select('library_ids, role')
         .eq('user_id', user.id)
         .single()
 
@@ -76,20 +76,45 @@ export default function SelectLibraryPage() {
       )
 
       setLibraries(enriched)
+      setRole(staff.role || 'staff')
       setLoading(false)
     }
     load()
   }, [router])
 
-  function selectLibrary(lib: LibraryWithStats) {
+  const [role, setRole] = useState('staff')
+  const [loadingAction, setLoadingAction] = useState<string | null>(null)
+
+  async function selectLibrary(lib: LibraryWithStats) {
+    if (lib.isExpired) {
+      if (role !== 'owner') {
+        alert('This library is expired. Only the owner can renew it.')
+        return
+      }
+
+      setLoadingAction(lib.id)
+      try {
+        const res = await fetch('/api/generate-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ library_id: lib.id, purpose: 'renew' })
+        })
+        const data = await res.json()
+        
+        if (!res.ok) throw new Error(data.error)
+        
+        // Redirect to Site 1
+        window.location.href = `https://libraryos.in/renew?token=${data.token}`
+      } catch (err: any) {
+        alert(err.message)
+        setLoadingAction(null)
+      }
+      return
+    }
+
     // Set cookie for 30 days
     document.cookie = `selected_library_id=${lib.id}; path=/; max-age=2592000`
-
-    if (lib.isExpired) {
-      router.push(`/renew?library_id=${lib.id}`)
-    } else {
-      router.push('/')
-    }
+    router.push('/')
   }
 
   async function handleLogout() {
@@ -137,7 +162,11 @@ export default function SelectLibraryPage() {
                   'w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black',
                   lib.isExpired ? 'bg-red-400/20 text-red-300' : 'bg-white/10 text-white'
                 )}>
-                  {lib.name.slice(0, 2).toUpperCase()}
+                  {loadingAction === lib.id ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-current border-t-white/30 animate-spin" />
+                  ) : (
+                    lib.name.slice(0, 2).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <p className="font-bold text-white text-sm leading-tight">{lib.name}</p>
@@ -153,7 +182,7 @@ export default function SelectLibraryPage() {
                 <>
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                   <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">
-                    Expired {Math.abs(lib.daysLeft)} days ago · Tap to renew
+                    Expired {Math.abs(lib.daysLeft)} days ago · {role === 'owner' ? 'Tap to renew' : 'Owner access required'}
                   </span>
                 </>
               ) : lib.daysLeft <= 7 ? (

@@ -37,9 +37,34 @@ export default function SettingsClient({
   const router = useRouter()
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [loadingAction, setLoadingAction] = useState<string | null>(null)
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section)
+  }
+
+  async function handleAddLibrary() {
+    if (profile?.role !== 'owner') {
+      alert('Only the owner can add a new library branch.')
+      return
+    }
+
+    setLoadingAction('add-library')
+    try {
+      const res = await fetch('/api/generate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'add-library' })
+      })
+      const data = await res.json()
+      
+      if (!res.ok) throw new Error(data.error)
+      
+      window.location.href = `https://libraryos.in/add-library?token=${data.token}`
+    } catch (err: any) {
+      alert(err.message)
+      setLoadingAction(null)
+    }
   }
 
   const settingsCards = [
@@ -330,18 +355,30 @@ export default function SettingsClient({
       </div>
 
       {/* Add Another Library Section */}
-      <div className="space-y-4 pt-2">
-        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Expansion</h3>
-        <button className="w-full bg-brand-50 border border-brand-100 rounded-[2.5rem] p-8 flex flex-col items-center justify-center gap-4 group active:scale-[0.98] transition-transform">
-          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-brand-500 shadow-xl shadow-brand-500/10 group-hover:scale-110 transition-transform duration-500">
-            <Plus className="w-8 h-8" />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-bold text-brand-900">Add Another Library</p>
-            <p className="text-[10px] text-brand-600 font-medium uppercase tracking-wider mt-1">Run multiple branches from one account</p>
-          </div>
-        </button>
-      </div>
+      {profile?.role === 'owner' && (
+        <div className="space-y-4 pt-2">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Expansion</h3>
+          <button 
+            onClick={handleAddLibrary}
+            disabled={loadingAction === 'add-library'}
+            className="w-full bg-brand-50 border border-brand-100 rounded-[2.5rem] p-8 flex flex-col items-center justify-center gap-4 group active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-brand-500 shadow-xl shadow-brand-500/10 group-hover:scale-110 transition-transform duration-500">
+              {loadingAction === 'add-library' ? (
+                <div className="w-6 h-6 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+              ) : (
+                <Plus className="w-8 h-8" />
+              )}
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-brand-900">
+                {loadingAction === 'add-library' ? 'Preparing...' : 'Add Another Library'}
+              </p>
+              <p className="text-[10px] text-brand-600 font-medium uppercase tracking-wider mt-1">Run multiple branches from one account</p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Logout */}
       <div className="pt-4">
