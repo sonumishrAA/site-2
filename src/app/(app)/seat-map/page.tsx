@@ -53,7 +53,7 @@ export default async function SeatMapPage() {
 
   // Fetch library shifts config (to know which shifts this library has)
   const [{ data: shifts }, { data: comboPlans }] = await Promise.all([
-    supabase.from("shifts").select("code, name").eq("library_id", libraryId),
+    supabase.from("shifts").select("code, name, start_time, end_time").eq("library_id", libraryId),
     supabase
       .from("combo_plans")
       .select("*")
@@ -94,6 +94,9 @@ export default async function SeatMapPage() {
 
     // Build per-shift occupancy
     const shiftOccupancy = shiftCodes.map((code) => {
+      const shiftDetails = shifts?.find(s => s.code === code)
+      const shiftTiming = shiftDetails?.start_time ? `${shiftDetails.start_time} - ${shiftDetails.end_time}` : ''
+
       // Find a student who has this shift selected and is active
       const activeStudent = activeStudents.find((s: any) =>
         s.selected_shifts?.includes(code),
@@ -106,9 +109,11 @@ export default async function SeatMapPage() {
         const sDaysLeft = daysUntil(activeStudent.end_date);
         return {
           shift: code,
+          shiftTiming,
           status:
             sDaysLeft <= 7 ? ("expiring" as const) : ("occupied" as const),
           studentName: activeStudent.name,
+          fatherName: activeStudent.father_name,
           endDate: activeStudent.end_date,
           daysLeft: sDaysLeft,
           paymentStatus: activeStudent.payment_status,
@@ -121,8 +126,10 @@ export default async function SeatMapPage() {
       if (expiredStudent) {
         return {
           shift: code,
+          shiftTiming,
           status: "expired" as const,
           studentName: expiredStudent.name,
+          fatherName: expiredStudent.father_name,
           endDate: expiredStudent.end_date,
           daysLeft: daysUntil(expiredStudent.end_date),
           paymentStatus: expiredStudent.payment_status,
@@ -134,8 +141,10 @@ export default async function SeatMapPage() {
       }
       return {
         shift: code,
+        shiftTiming,
         status: "vacant" as const,
         studentName: null,
+        fatherName: null,
         endDate: null,
         daysLeft: null,
         student: null,

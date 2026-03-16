@@ -9,7 +9,9 @@ const mono = JetBrains_Mono({ subsets: ["latin"] });
 
 export interface ShiftRow {
   shift: string; // 'M' | 'A' | 'E' | 'N'
+  shiftTiming?: string;
   studentName: string | null;
+  fatherName?: string | null;
   status: "active" | "expiring" | "occupied" | "expired" | "vacant";
   paymentStatus?: string;
   amountPaid?: number;
@@ -178,7 +180,7 @@ export default function SeatBox({
       </div>
 
       {/* Accordion shifts area — Scrollable container */}
-      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden p-1 gap-1 min-h-0 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
+      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden p-1 gap-1 min-h-0 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[::-webkit-scrollbar-thumb]:bg-gray-300">
         {shifts.map((s, idx) => {
           const isExpanded = expandedIndex === idx;
           const isCollapsed = expandedIndex !== null && !isExpanded;
@@ -224,7 +226,7 @@ export default function SeatBox({
               )}
             >
               {/* Top Row: M/A/E/N Icon + Name + Badge */}
-              <div className="flex items-center justify-between w-full shrink-0 min-h-0">
+              <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2 min-w-0">
                   <div
                     className={cn(
@@ -237,18 +239,30 @@ export default function SeatBox({
                   </div>
 
                   {(!isCollapsed || isExpanded) && (
-                    <span
-                      className={cn(
-                        "text-xs font-bold truncate transition-all duration-300",
-                        textColor,
+                    <div className="flex flex-col truncate">
+                      <span
+                        className={cn(
+                          "text-xs font-bold truncate transition-all duration-300",
+                          textColor,
+                        )}
+                      >
+                        {s.status === "vacant" ? (
+                          <span className="opacity-50 italic">Vacant</span>
+                        ) : (
+                          s.studentName
+                        )}
+                      </span>
+                      {isExpanded && s.fatherName && (
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold opacity-60 truncate",
+                            textColor,
+                          )}
+                        >
+                          S/o {s.fatherName}
+                        </span>
                       )}
-                    >
-                      {s.status === "vacant" ? (
-                        <span className="opacity-50 italic">Vacant</span>
-                      ) : (
-                        s.studentName
-                      )}
-                    </span>
+                    </div>
                   )}
                 </div>
 
@@ -261,12 +275,21 @@ export default function SeatBox({
               {/* Expanded content — Scrollable if needed */}
               <div
                 className={cn(
-                  "flex flex-col mt-4 opacity-0 transition-opacity duration-300 delay-100 overflow-y-auto max-h-0",
-                  isExpanded && "opacity-100 flex-1 max-h-none pb-1 space-y-3",
+                  "flex flex-col mt-3 opacity-0 transition-opacity duration-300 delay-100 space-y-2.5",
+                  isExpanded && "opacity-100 flex-1 justify-end pb-1",
                 )}
               >
                 {s.status !== "vacant" && s.studentName && (
                   <>
+                    <div className="bg-white/60 p-1.5 px-2 rounded-lg border border-white/40 shadow-sm backdrop-blur-sm flex justify-between items-center">
+                      <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest">
+                        Timing
+                      </span>
+                      <span className="text-[9px] font-bold text-gray-800 font-mono">
+                        {s.shiftTiming || "—"}
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2 text-xs shrink-0">
                       <div className="bg-white/60 p-2 rounded-lg border border-white/40 shadow-sm backdrop-blur-sm">
                         <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-0.5">
