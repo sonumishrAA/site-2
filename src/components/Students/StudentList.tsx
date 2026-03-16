@@ -49,7 +49,11 @@ export default function StudentList({ students }: { students: any[] }) {
                     <div className="min-w-0">
                       <h4 className="font-black text-gray-900 text-base capitalize truncate tracking-tight">{student.name || 'Unnamed'}</h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[9px] font-black text-brand-600 bg-brand-50 px-2 py-0.5 rounded-lg uppercase tracking-widest border border-brand-100/50">{student.shift_display}</span>
+                        <div className="flex items-center gap-0.5">
+                          {(student.selected_shifts || student.shift_display?.split('+') || []).sort().map((s: string, i: number) => (
+                            <span key={s} className="text-[9px] font-black text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md uppercase border border-brand-100/50">{s}</span>
+                          ))}
+                        </div>
                         {isExpired ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); setRenewSheet({ isOpen: true, student }) }}
