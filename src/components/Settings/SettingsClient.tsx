@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info } from 'lucide-react'
+import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { supabaseBrowser } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 interface SettingsClientProps {
   user: any
@@ -32,7 +34,9 @@ export default function SettingsClient({
   staffMembers,
   allOwnedLibraries
 }: SettingsClientProps) {
+  const router = useRouter()
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section)
@@ -336,6 +340,22 @@ export default function SettingsClient({
             <p className="text-sm font-bold text-brand-900">Add Another Library</p>
             <p className="text-[10px] text-brand-600 font-medium uppercase tracking-wider mt-1">Run multiple branches from one account</p>
           </div>
+        </button>
+      </div>
+
+      {/* Logout */}
+      <div className="pt-4">
+        <button
+          onClick={async () => {
+            setLoggingOut(true)
+            await supabaseBrowser.auth.signOut()
+            router.push('/login')
+          }}
+          disabled={loggingOut}
+          className="w-full bg-red-50 border border-red-100 text-red-600 rounded-2xl p-4 flex items-center justify-center gap-2 font-bold text-sm uppercase tracking-widest active:scale-[0.98] transition-all hover:bg-red-100 disabled:opacity-50"
+        >
+          <LogOut className="w-5 h-5" />
+          {loggingOut ? 'Logging out...' : 'Logout'}
         </button>
       </div>
     </div>
