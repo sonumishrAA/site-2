@@ -50,11 +50,11 @@ export default function SeatDetailSheet({
   comboPlans: any[]
 }) {
   const [expandedShift, setExpandedShift] = useState<string | null>(null)
-  
+
   // Renew UI state
   const [renewPlanMonths, setRenewPlanMonths] = useState<number>(1)
   const [renewPaymentStatus, setRenewPaymentStatus] = useState<'paid' | 'pending'>('paid')
-  
+
   if (!detail) return null
 
   // Function to calculate final price
@@ -89,7 +89,7 @@ export default function SeatDetailSheet({
                 const activeStudent = shift.student
 
                 return (
-                  <div 
+                  <div
                     key={shift.shift}
                     className={cn(
                       "rounded-2xl border transition-all duration-300 overflow-hidden",
@@ -99,7 +99,7 @@ export default function SeatDetailSheet({
                     style={{ animation: `fadeInUp 0.3s ease-out ${idx * 60}ms both` }}
                   >
                     {/* Header Row (Always visible) */}
-                    <button 
+                    <button
                       onClick={() => {
                         if (shift.status !== 'vacant') {
                           setExpandedShift(isExpanded ? null : shift.shift)
@@ -113,9 +113,9 @@ export default function SeatDetailSheet({
                         {/* Shift badge */}
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg border shadow-sm",
-                          shift.status === 'vacant' 
-                            ? 'bg-gray-100 border-gray-200 text-gray-400 shadow-none' 
-                            : shift.status === 'occupied' 
+                          shift.status === 'vacant'
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 shadow-none'
+                            : shift.status === 'occupied'
                               ? 'bg-brand-500 border-brand-600 text-white'
                               : shift.status === 'expiring'
                                 ? 'bg-amber-500 border-amber-600 text-white'
@@ -144,8 +144,8 @@ export default function SeatDetailSheet({
                         {shift.status !== 'vacant' && activeStudent && (
                           <div className={cn(
                             "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
-                            activeStudent.payment_status === 'paid' 
-                              ? "bg-green-50 text-green-600 border-green-100" 
+                            activeStudent.payment_status === 'paid'
+                              ? "bg-green-50 text-green-600 border-green-100"
                               : "bg-amber-50 text-amber-600 border-amber-100"
                           )}>
                             {activeStudent.payment_status}
@@ -165,7 +165,7 @@ export default function SeatDetailSheet({
                             Expired
                           </div>
                         ) : null}
-                        
+
                         {shift.status !== 'vacant' && (
                           <div className={cn("p-1 rounded-full transition-transform", isExpanded ? "bg-gray-100" : "bg-white/50")}>
                             {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
@@ -177,7 +177,7 @@ export default function SeatDetailSheet({
                     {/* Expanded Content */}
                     {isExpanded && activeStudent && (
                       <div className="px-4 pb-4 pt-1 border-t border-gray-100 bg-white">
-                        
+
                         {/* Student Details Grid */}
                         <div className="bg-gray-50 rounded-2xl p-4 mt-3 space-y-3 border border-gray-100/50">
                           <div className="flex items-center gap-3">
@@ -191,7 +191,7 @@ export default function SeatDetailSheet({
                               </span>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-3">
                             <div className="w-7 h-7 rounded-lg bg-white border border-gray-100 flex items-center justify-center shrink-0">
                               <MapPin className="w-3.5 h-3.5 text-gray-400" />
@@ -243,9 +243,9 @@ export default function SeatDetailSheet({
                         {(shift.status === 'expired' || shift.status === 'expiring') && (
                           <div className="mt-4 p-4 bg-brand-900 rounded-2xl text-white relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                            
+
                             <h5 className="font-serif text-lg mb-3">Renew Subscription</h5>
-                            
+
                             <div className="space-y-3 relative z-10">
                               <div className="grid grid-cols-4 gap-2">
                                 {[1, 3, 6, 12].map(m => (
@@ -270,13 +270,13 @@ export default function SeatDetailSheet({
                                 <div className="text-right">
                                   <p className="text-[9px] text-white/60 font-bold uppercase tracking-widest mb-1">Status</p>
                                   <div className="flex gap-1">
-                                    <button 
+                                    <button
                                       onClick={() => setRenewPaymentStatus('paid')}
                                       className={cn("px-2 py-1 rounded text-[9px] font-bold uppercase", renewPaymentStatus === 'paid' ? "bg-green-500 text-white" : "bg-white/10 text-white/50")}
                                     >
                                       Paid
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => setRenewPaymentStatus('pending')}
                                       className={cn("px-2 py-1 rounded text-[9px] font-bold uppercase", renewPaymentStatus === 'pending' ? "bg-amber-500 text-white" : "bg-white/10 text-white/50")}
                                     >
@@ -286,7 +286,7 @@ export default function SeatDetailSheet({
                                 </div>
                               </div>
 
-                              <button 
+                              <button
                                 onClick={() => handleRenew(activeStudent.id)}
                                 className="w-full bg-white text-brand-900 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-brand-50 transition-colors"
                               >
@@ -315,7 +315,7 @@ export default function SeatDetailSheet({
               <p className="text-sm text-gray-500">Admit a new student to this seat.</p>
             </div>
             <button className="bg-brand-500 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-brand-100 active:scale-95 transition-transform">
-              New Admission
+              Close
             </button>
           </div>
         )}

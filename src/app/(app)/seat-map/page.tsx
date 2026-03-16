@@ -189,8 +189,8 @@ export default async function SeatMapPage() {
   });
 
   return (
-    <div className="pb-24 bg-gray-50 min-h-screen -mt-10">
-      <div className="bg-white px-6 py-3 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] rounded-b-3xl mb-4 flex items-center justify-between z-20 sticky top-0 md:top-4 mx-4 md:mx-auto max-w-7xl">
+    <div className="pb-24 bg-gray-50 min-h-screen">
+      <div className="bg-white px-6 py-4 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] rounded-3xl border border-gray-100 mt-[50px] mb-[50px] flex items-center justify-between mx-4 md:mx-auto max-w-7xl">
         <h2 className="text-xl md:text-2xl font-serif text-brand-900 leading-none">
           Seat Map
         </h2>

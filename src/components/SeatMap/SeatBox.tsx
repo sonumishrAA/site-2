@@ -169,13 +169,6 @@ export default function SeatBox({
               title="Has locker"
             />
           )}
-          <button
-            onClick={onClick}
-            className="p-1.5 bg-white border border-gray-200 rounded-lg text-gray-400 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-all shadow-sm"
-            title="Manage Seat Details"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
