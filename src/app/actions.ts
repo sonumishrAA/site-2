@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 
 export async function submitNewAdmission(data: any) {
   const adminClient = createAdminClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: staffDetails } = await supabase.from('staff').select('role, name').eq('user_id', user?.id).single()
 

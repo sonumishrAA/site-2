@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import SettingsClient from '@/components/Settings/SettingsClient'
 
 export default async function SettingsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

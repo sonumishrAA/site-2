@@ -1,16 +1,22 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import SeatBox from './SeatBox'
-import SeatDetailSheet from './SeatDetailSheet'
+import { useState } from "react";
+import SeatBox from "./SeatBox";
+import SeatDetailSheet from "./SeatDetailSheet";
 
-export default function InteractiveGrid({ initialSeats, comboPlans }: { initialSeats: any[], comboPlans: any[] }) {
-  const [selectedSeat, setSelectedSeat] = useState<any | null>(null)
-  const [isSheetOpen, setIsSheetOpen] = useState(false)
+export default function InteractiveGrid({
+  initialSeats,
+  comboPlans,
+}: {
+  initialSeats: any[];
+  comboPlans: any[];
+}) {
+  const [selectedSeat, setSelectedSeat] = useState<any | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   return (
     <>
-      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 auto-rows-max w-full overflow-x-auto pb-2">
         {initialSeats.map((seat, index) => (
           <SeatBox
             key={seat.id}
@@ -18,7 +24,10 @@ export default function InteractiveGrid({ initialSeats, comboPlans }: { initialS
             overallStatus={seat.status}
             shifts={seat.shiftOccupancy || []}
             hasLocker={seat.hasLocker}
-            onClick={() => { setSelectedSeat(seat); setIsSheetOpen(true) }}
+            onClick={() => {
+              setSelectedSeat(seat);
+              setIsSheetOpen(true);
+            }}
             animationDelay={index * 25}
           />
         ))}
@@ -31,5 +40,5 @@ export default function InteractiveGrid({ initialSeats, comboPlans }: { initialS
         comboPlans={comboPlans}
       />
     </>
-  )
+  );
 }

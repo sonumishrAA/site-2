@@ -8,7 +8,7 @@ export default async function StudentsPage({
 }: {
   searchParams: { filter?: string; q?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
