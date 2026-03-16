@@ -22,17 +22,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify role is owner and owner owns this library (if renew)
-    const { data: staff } = await supabase
+    const { data: staffRows } = await supabase
       .from('staff')
       .select('name, phone, role, library_ids')
       .eq('user_id', user.id)
-      .single()
 
-    if (!staff || staff.role !== 'owner') {
+    if (!staffRows || staffRows.length === 0) {
+      return NextResponse.json({ error: 'Forbidden: No staff profile found' }, { status: 403 })
+    }
+
+    const ownerProfile = staffRows.find(row => row.role === 'owner')
+
+    if (!ownerProfile) {
       return NextResponse.json({ error: 'Forbidden: Only owners can perform this action' }, { status: 403 })
     }
 
-    if (purpose === 'renew' && (!staff.library_ids || !staff.library_ids.includes(library_id))) {
+    if (purpose === 'renew' && (!ownerProfile.library_ids || !ownerProfile.library_ids.includes(library_id))) {
       return NextResponse.json({ error: 'Forbidden: You do not own this library' }, { status: 403 })
     }
 
@@ -40,8 +45,8 @@ export async function POST(request: NextRequest) {
     const token = signCrossSiteToken({
       owner_id: user.id,
       owner_email: user.email,
-      owner_name: staff.name,
-      owner_phone: staff.phone,
+      owner_name: ownerProfile.name,
+      owner_phone: ownerProfile.phone,
       library_id: purpose === 'renew' ? library_id : undefined,
       purpose
     })
