@@ -34,10 +34,10 @@ export default async function FinancialCalendarPage({
   const monthStartDisplay = new Date(mYear, mMonth, 1).toISOString().split('T')[0]
   const monthEndDisplay = new Date(mYear, mMonth + 1, 0).toISOString().split('T')[0]
 
-  // Fetch financial events with student details
+  // Fetch financial events
   const { data: events } = await supabase
     .from('financial_events')
-    .select('*, students(name, phone)')
+    .select('*')
     .eq('library_id', libraryId)
     .gte('created_at', monthStartDisplay)
     .lte('created_at', monthEndDisplay + 'T23:59:59')

@@ -9,14 +9,11 @@ import Link from 'next/link';
 interface FinancialEvent {
   id: string;
   student_id: string;
+  student_name: string;
   amount: number;
-  payment_method?: string;
+  payment_mode?: string;
   pending_amount?: number;
   created_at: string;
-  students?: {
-    name: string;
-    phone: string;
-  };
 }
 
 export default function FinancialCalendarClient({ 
@@ -124,10 +121,10 @@ export default function FinancialCalendarClient({
                        </div>
                        <div>
                          <p className="text-sm font-bold text-gray-900 group-hover:text-brand-600 transition-colors">
-                           {event.students?.name || 'Unknown Student'}
+                           {event.student_name || 'Unknown Student'}
                          </p>
                          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-0.5">
-                           {new Date(event.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} • {event.payment_method || 'CASH'}
+                           {new Date(event.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} • {event.payment_mode || 'CASH'}
                          </p>
                        </div>
                      </div>
