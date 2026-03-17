@@ -23,19 +23,17 @@ export async function POST(request: NextRequest) {
 
     // Use admin client to bypass RLS for checking staff roles across all libraries
     const adminSupabase = createAdminClient()
-    const { data: staffRows } = await adminSupabase
+    const { data: ownerProfile, error: profileError } = await adminSupabase
       .from('staff')
       .select('name, phone, role, library_ids')
       .eq('user_id', user.id)
+      .eq('role', 'owner')
+      .limit(1)
+      .single()
 
-    if (!staffRows || staffRows.length === 0) {
-      return NextResponse.json({ error: 'Forbidden: No staff profile found' }, { status: 403 })
-    }
-
-    const ownerProfile = staffRows.find(row => row.role === 'owner')
-
-    if (!ownerProfile) {
-      return NextResponse.json({ error: 'Forbidden: Only owners can perform this action' }, { status: 403 })
+    if (profileError || !ownerProfile) {
+      console.error('generate-token profile fetch error:', profileError)
+      return NextResponse.json({ error: 'Forbidden: No owner profile found' }, { status: 403 })
     }
 
     if (purpose === 'renew' && (!ownerProfile.library_ids || !ownerProfile.library_ids.includes(library_id))) {
@@ -46,8 +44,8 @@ export async function POST(request: NextRequest) {
     const token = signCrossSiteToken({
       owner_id: user.id,
       owner_email: user.email,
-      owner_name: ownerProfile.name,
-      owner_phone: ownerProfile.phone,
+      owner_name: ownerProfile.name || '',
+      owner_phone: ownerProfile.phone || '',
       library_id: purpose === 'renew' ? library_id : undefined,
       purpose
     })
