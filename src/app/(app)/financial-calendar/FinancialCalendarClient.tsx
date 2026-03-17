@@ -45,6 +45,10 @@ export default function FinancialCalendarClient({
   const refunded = Math.abs(events.reduce((acc, e) => (e.amount < 0 ? acc + e.amount : acc), 0));
   const netRevenue = collected - refunded;
 
+  // Pending Calculations
+  const partialPending = events.reduce((acc, e) => (e.amount > 0 && e.pending_amount ? acc + e.pending_amount : acc), 0);
+  const totalPending = events.reduce((acc, e) => (e.amount === 0 && e.pending_amount ? acc + e.pending_amount : acc), 0);
+
   return (
     <div className="pb-24 max-w-7xl mx-auto w-full space-y-6">
       <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-14 z-20 space-y-4">
@@ -75,7 +79,7 @@ export default function FinancialCalendarClient({
         </div>
       </div>
 
-      <div className="px-4 space-y-4">
+      <div className="px-4 pt-[70px] space-y-6">
         {/* Month Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl text-white shadow-lg shadow-green-500/20 relative overflow-hidden">
@@ -87,9 +91,23 @@ export default function FinancialCalendarClient({
              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Refunds</p>
              <p className="text-xl font-black font-mono text-red-500">-₹{refunded.toLocaleString('en-IN')}</p>
           </div>
-           <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm col-span-2 md:col-span-1">
+          <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Net Revenue</p>
              <p className="text-xl font-black font-mono text-brand-600">₹{netRevenue.toLocaleString('en-IN')}</p>
+          </div>
+          
+          {/* Pending Stats */}
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl shadow-sm">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600 mb-1">Partial Pending</p>
+             <p className="text-xl font-black font-mono text-amber-700">₹{partialPending.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="bg-red-50 border border-red-100 p-4 rounded-2xl shadow-sm">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-red-400 mb-1">Total Pending</p>
+             <p className="text-xl font-black font-mono text-red-600">₹{totalPending.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="bg-gray-900 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Overall Pending</p>
+             <p className="text-xl font-black font-mono text-white">₹{(partialPending + totalPending).toLocaleString('en-IN')}</p>
           </div>
         </div>
 

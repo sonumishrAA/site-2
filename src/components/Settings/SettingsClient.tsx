@@ -298,68 +298,70 @@ export default function SettingsClient({
       </div>
 
       {/* Staff Accounts Section */}
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Staff Accounts</h3>
-          {/* Note: In DB logic, the owner can add unlimited staff; UI indicates count */}
-          <span className="text-[10px] font-black text-brand-500">{staffMembers.length} ACTIVE</span>
-        </div>
+      {profile?.role === 'owner' && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Staff Accounts</h3>
+            {/* Note: In DB logic, the owner can add unlimited staff; UI indicates count */}
+            <span className="text-[10px] font-black text-brand-500">{staffMembers.length} ACTIVE</span>
+          </div>
 
-        <div className="space-y-3">
-          {staffMembers.map((staff) => (
-            <div key={staff.id} className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-6 space-y-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-lg">
-                      {staff.name.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900">{staff.name}</h4>
-                      <div className="flex gap-2 mt-1">
-                        <span className="bg-brand-50 text-brand-700 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">
-                          {staff.role}
-                        </span>
+          <div className="space-y-3">
+            {staffMembers.map((staff) => (
+              <div key={staff.id} className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-lg">
+                        {staff.name.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-900">{staff.name}</h4>
+                        <div className="flex gap-2 mt-1">
+                          <span className="bg-brand-50 text-brand-700 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">
+                            {staff.role}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                      <User className="w-3.5 h-3.5" /> {staff.email}
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400 text-[10px] font-medium uppercase tracking-wider">
+                      <Clock className="w-3.5 h-3.5" /> Active in assigned branches
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Branch Access</p>
+                    <div className="flex flex-wrap gap-2">
+                      {allOwnedLibraries.filter(lib => staff.library_ids?.includes(lib.id)).map(lib => (
+                        <div key={lib.id} className="bg-green-50 text-green-700 border border-green-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5">
+                          {lib.name} <span className="text-green-500">✓</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
-                    <User className="w-3.5 h-3.5" /> {staff.email}
+                {profile?.role === 'owner' && (
+                  <div className="grid grid-cols-2 border-t border-gray-50">
+                    <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:bg-gray-50 transition-colors border-r border-gray-50 flex items-center justify-center gap-2">
+                      <Lock className="w-3.5 h-3.5" /> Reset Password
+                    </button>
+                    <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                      <Users className="w-3.5 h-3.5" /> Remove
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-400 text-[10px] font-medium uppercase tracking-wider">
-                    <Clock className="w-3.5 h-3.5" /> Active in assigned branches
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Branch Access</p>
-                  <div className="flex flex-wrap gap-2">
-                    {allOwnedLibraries.filter(lib => staff.library_ids?.includes(lib.id)).map(lib => (
-                      <div key={lib.id} className="bg-green-50 text-green-700 border border-green-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5">
-                        {lib.name} <span className="text-green-500">✓</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
-
-              {profile?.role === 'owner' && (
-                <div className="grid grid-cols-2 border-t border-gray-50">
-                  <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:bg-gray-50 transition-colors border-r border-gray-50 flex items-center justify-center gap-2">
-                    <Lock className="w-3.5 h-3.5" /> Reset Password
-                  </button>
-                  <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-                    <Users className="w-3.5 h-3.5" /> Remove
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Add Another Library Section */}
       {profile?.role === 'owner' && (
