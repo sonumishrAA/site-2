@@ -6,6 +6,7 @@ import { cn, formatPhone } from '@/lib/utils'
 import DeleteStudentDialog from './DeleteStudentDialog'
 import EditStudentSheet from './EditStudentSheet'
 import RenewStudentSheet from './RenewStudentSheet'
+import FeeCollectionSheet from './FeeCollectionSheet'
 
 export default function StudentList({ students, role = 'staff' }: { students: any[], role?: string }) {
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; student: any | null }>({
@@ -17,6 +18,10 @@ export default function StudentList({ students, role = 'staff' }: { students: an
     student: null
   })
   const [renewSheet, setRenewSheet] = useState<{ isOpen: boolean; student: any | null }>({
+    isOpen: false,
+    student: null
+  })
+  const [feeSheet, setFeeSheet] = useState<{ isOpen: boolean; student: any | null }>({
     isOpen: false,
     student: null
   })
@@ -77,9 +82,17 @@ export default function StudentList({ students, role = 'staff' }: { students: an
                               {student.payment_status === 'discounted' ? 'Paid*' : student.payment_status === 'partial' ? 'Partial' : student.payment_status}
                             </div>
                             {student.payment_status === 'partial' && (
-                              <span className="text-[8px] font-bold text-red-500">
-                                Due: ₹{(student.total_fee || 0) - (student.amount_paid || 0)}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold text-red-500">
+                                  Due: ₹{(student.total_fee || 0) - (student.amount_paid || 0)}
+                                </span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setFeeSheet({ isOpen: true, student }) }}
+                                  className="px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors cursor-pointer"
+                                >
+                                  Pay Balance
+                                </button>
+                              </div>
                             )}
                           </>
                         )}
@@ -224,6 +237,12 @@ export default function StudentList({ students, role = 'staff' }: { students: an
         isOpen={renewSheet.isOpen}
         onClose={() => setRenewSheet({ isOpen: false, student: null })}
         student={renewSheet.student}
+      />
+
+      <FeeCollectionSheet
+        isOpen={feeSheet.isOpen}
+        onClose={() => setFeeSheet({ isOpen: false, student: null })}
+        student={feeSheet.student}
       />
     </>
   )

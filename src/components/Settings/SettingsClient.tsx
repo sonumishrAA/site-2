@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info, LogOut, X, Save } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info, LogOut, X, Save, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -58,7 +58,8 @@ export default function SettingsClient({
     male_lockers: library?.male_lockers || 0,
     female_lockers: library?.female_lockers || 0,
     neutral_lockers: library?.neutral_lockers || 0,
-    monthly_fee: lockerPolicy?.monthly_fee || 0
+    monthly_fee: lockerPolicy?.monthly_fee || 0,
+    eligible_combos: lockerPolicy?.eligible_combos || [] as string[]
   })
   const [shiftsForm, setShiftsForm] = useState(shifts.map(s => ({ ...s })))
   const [pricingForm, setPricingForm] = useState(comboPlans.map(p => ({ ...p })))
@@ -100,13 +101,16 @@ export default function SettingsClient({
 
     const { error: policyError } = await supabaseBrowser
       .from('locker_policies')
-      .update({ monthly_fee: lockersForm.monthly_fee })
+      .update({ 
+        monthly_fee: lockersForm.monthly_fee,
+        eligible_combos: lockersForm.eligible_combos
+      })
       .eq('library_id', library.id)
 
     if (libError || policyError) alert(libError?.message || policyError?.message)
     else {
       setLibrary({ ...library, ...lockersForm })
-      setLockerPolicy({ ...lockerPolicy, monthly_fee: lockersForm.monthly_fee })
+      setLockerPolicy({ ...lockerPolicy, monthly_fee: lockersForm.monthly_fee, eligible_combos: lockersForm.eligible_combos })
       setEditModal(null)
       router.refresh()
     }
@@ -181,6 +185,10 @@ export default function SettingsClient({
     }
   }
 
+  const allComboKeys = useMemo(() => {
+    return Array.from(new Set(comboPlans.map(p => p.combination_key))).sort((a,b) => a.length - b.length)
+  }, [comboPlans])
+
   const settingsCards = [
     { 
       id: 'lib', 
@@ -197,7 +205,7 @@ export default function SettingsClient({
             </div>
             <div className="space-y-1 text-right">
               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Seat Type</p>
-              <p className="text-sm font-bold text-brand-600 uppercase">{library?.seat_type}</p>
+              <p className="text-sm font-bold text-brand-600 uppercase">{library?.is_gender_neutral ? 'Neutral' : 'Gendered'}</p>
             </div>
           </div>
           <div className="space-y-1">
@@ -293,7 +301,7 @@ export default function SettingsClient({
                 </tr>
               </thead>
               <tbody>
-                {Array.from(new Set(comboPlans?.map(p => p.combination_key))).sort((a,b) => a.length - b.length).map(combo => (
+                {allComboKeys.map(combo => (
                   <tr key={combo} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-3 text-[10px] font-black text-brand-700 font-mono">{combo}</td>
                     {[1, 3, 6, 12].map(m => {
@@ -603,24 +611,61 @@ export default function SettingsClient({
               )}
 
               {editModal === 'lockers' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Male</label>
-                      <input type="number" value={lockersForm.male_lockers} onChange={(e) => setLockersForm({ ...lockersForm, male_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Female</label>
-                      <input type="number" value={lockersForm.female_lockers} onChange={(e) => setLockersForm({ ...lockersForm, female_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Neutral</label>
-                      <input type="number" value={lockersForm.neutral_lockers} onChange={(e) => setLockersForm({ ...lockersForm, neutral_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
+                <div className="space-y-6">
+                  {/* Locker Inventory - Only show Neutral if Neutral Library, else M/F/N */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Locker Inventory</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {!library?.is_gender_neutral ? (
+                        <>
+                          <div>
+                            <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Male</label>
+                            <input type="number" value={lockersForm.male_lockers} onChange={(e) => setLockersForm({ ...lockersForm, male_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm font-bold" />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Female</label>
+                            <input type="number" value={lockersForm.female_lockers} onChange={(e) => setLockersForm({ ...lockersForm, female_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-pink-50 border border-pink-100 rounded-xl p-3 text-sm font-bold" />
+                          </div>
+                        </>
+                      ) : null}
+                      <div className={cn(library?.is_gender_neutral ? "col-span-3" : "col-span-1")}>
+                        <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Neutral</label>
+                        <input type="number" value={lockersForm.neutral_lockers} onChange={(e) => setLockersForm({ ...lockersForm, neutral_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm font-bold" />
+                      </div>
                     </div>
                   </div>
+
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Monthly Locker Fee (₹)</label>
                     <input type="number" value={lockersForm.monthly_fee} onChange={(e) => setLockersForm({ ...lockersForm, monthly_fee: parseFloat(e.target.value) || 0 })} className="w-full mt-1 bg-amber-50 border border-amber-100 rounded-2xl p-4 font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
+                  </div>
+
+                  {/* Eligible Combos Multi-select */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Locker Eligible Shifts</label>
+                    <div className="flex flex-wrap gap-2">
+                      {allComboKeys.map(combo => {
+                        const isSelected = lockersForm.eligible_combos.includes(combo)
+                        return (
+                          <button
+                            key={combo}
+                            onClick={() => {
+                              const next = isSelected 
+                                ? lockersForm.eligible_combos.filter(c => c !== combo)
+                                : [...lockersForm.eligible_combos, combo]
+                              setLockersForm({ ...lockersForm, eligible_combos: next })
+                            }}
+                            className={cn(
+                              "px-3 py-2 rounded-xl border text-[10px] font-black font-mono transition-all",
+                              isSelected ? "bg-brand-900 text-white border-brand-900 shadow-md" : "bg-white text-gray-400 border-gray-100 hover:border-brand-200"
+                            )}
+                          >
+                            {combo} {isSelected && <CheckCircle2 className="w-2.5 h-2.5 inline-block ml-1" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[9px] text-gray-400 italic">Students with these shift combinations can opt for a locker.</p>
                   </div>
                 </div>
               )}

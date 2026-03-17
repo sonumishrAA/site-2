@@ -49,6 +49,8 @@ export default function EditStudentSheet({ isOpen, onClose, student }: EditStude
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    father_name: '',
+    address: '',
     gender: 'male',
     shifts: [] as string[],
     seat_id: '',
@@ -64,6 +66,8 @@ export default function EditStudentSheet({ isOpen, onClose, student }: EditStude
       const initialData = {
         name: student.name || '',
         phone: student.phone || '',
+        father_name: student.father_name || '',
+        address: student.address || '',
         gender: student.gender || 'male',
         shifts: student.selected_shifts || student.shift_display?.split('+') || [],
         seat_id: student.seat_id || '',
@@ -106,42 +110,60 @@ export default function EditStudentSheet({ isOpen, onClose, student }: EditStude
     setLoadingData(false)
   }
 
-  const availableSeats = useMemo(() => {
-    return seats.filter(seat => {
-      // 1. Gender check
-      if (seat.gender !== 'neutral' && seat.gender !== formData.gender) return false
-
-      // 2. Occupancy check: Is this seat taken by ANYONE ELSE for ANY of the requested shifts?
-      if (formData.shifts.length > 0) {
-        const otherStudentsShifts = seat.student_seat_shifts?.filter(s => s.student_id !== student?.id) || []
-        const takenShifts = otherStudentsShifts.map(s => s.shift_code)
-        const hasOverlap = formData.shifts.some(s => takenShifts.includes(s))
-        if (hasOverlap) return false
+  // ✅ Filter seats by gender, but show all (even if busy) so user sees the inventory
+  const filteredSeats = useMemo(() => {
+    return sortSeats(seats).map(seat => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const activeBookedShifts: string[] = []
+      // Look at current active student shifts on this seat (excluding the student being edited)
+      if (seat.student_seat_shifts) {
+        for (const ss of seat.student_seat_shifts) {
+          if (ss.student_id !== student?.id) {
+            activeBookedShifts.push(ss.shift_code)
+          }
+        }
       }
       
-      return true
+      const isAvailable = formData.shifts.length > 0 
+        ? formData.shifts.every(s => !activeBookedShifts.includes(s))
+        : true
+
+      return { ...seat, activeBookedShifts, isAvailable }
+    }).filter(seat => {
+      // Gender check remains strict
+      return seat.gender === 'neutral' || seat.gender === formData.gender
     })
   }, [seats, formData.shifts, formData.gender, student])
 
-  // Recommended seat logic
+  // Auto-select logic
   useEffect(() => {
-    if (availableSeats.length > 0 && !formData.seat_id) {
-      setFormData(prev => ({ ...prev, seat_id: availableSeats[0].id }))
+    if (formData.seat_id && !filteredSeats.find(s => s.id === formData.seat_id)) {
+      // If current seat is filtered out (gender change), pick first available
+      const firstAvailable = filteredSeats.find(s => s.isAvailable)
+      if (firstAvailable) setFormData(prev => ({ ...prev, seat_id: firstAvailable.id }))
     }
-    
-    // If the currently selected seat is no longer available in the filtered list
-    if (formData.seat_id && !availableSeats.find(s => s.id === formData.seat_id)) {
-      setFormData(prev => ({ ...prev, seat_id: availableSeats[0]?.id || '' }))
-    }
-  }, [availableSeats])
+  }, [filteredSeats])
 
   const handleUpdate = async () => {
     setLoading(true)
     try {
       const res = await updateStudent(student.id, {
-        ...formData,
+        name: formData.name,
+        phone: formData.phone,
+        father_name: formData.father_name,
+        address: formData.address,
+        gender: formData.gender,
+        shifts: formData.shifts,
+        seat_id: formData.seat_id,
+        locker_id: formData.has_locker ? formData.locker_id : null,
+        has_locker: formData.has_locker,
+        payment_status: formData.payment_status,
         end_date: student.end_date,
-        old_locker_id: student.locker_id
+        old_locker_id: student.locker_id,
+        amount_paid: student.amount_paid,
+        discount_amount: student.discount_amount
       })
 
       if (!res.success) {
@@ -188,11 +210,32 @@ export default function EditStudentSheet({ isOpen, onClose, student }: EditStude
             />
           </div>
 
-          <PhoneInput 
-            value={formData.phone}
-            onChange={val => setFormData({...formData, phone: val})}
-            label="Mobile Number"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Father's Name</label>
+              <input 
+                type="text" 
+                value={formData.father_name}
+                onChange={e => setFormData({...formData, father_name: e.target.value})}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all outline-none" 
+              />
+            </div>
+            <PhoneInput 
+              value={formData.phone}
+              onChange={val => setFormData({...formData, phone: val})}
+              label="Mobile Number"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Address</label>
+            <input 
+              type="text" 
+              value={formData.address}
+              onChange={e => setFormData({...formData, address: e.target.value})}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all outline-none" 
+            />
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Gender</label>
@@ -236,65 +279,64 @@ export default function EditStudentSheet({ isOpen, onClose, student }: EditStude
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Assigned Seat</label>
             {formData.shifts.length > 0 ? (
-              <>
-                {availableSeats.length === 0 ? (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl border border-red-100 text-red-600">
-                    <AlertCircle className="w-4 h-4" />
-                    <p className="text-[10px] font-bold uppercase tracking-wider">No seats available for {formData.shifts.join('+')}</p>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsSeatDropdownOpen(!isSeatDropdownOpen)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none flex justify-between items-center"
-                    >
-                      <span className="font-bold text-gray-800">
-                        {formData.seat_id 
-                          ? `Seat ${availableSeats.find(s => s.id === formData.seat_id)?.seat_number || ''}` 
-                          : 'Select a seat...'}
-                      </span>
-                      <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", isSeatDropdownOpen && "rotate-180")} />
-                    </button>
-                    
-                    {isSeatDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-50 p-2 space-y-1">
-                        {availableSeats.map((s, idx) => {
-                          const otherStudentsShifts = s.student_seat_shifts?.filter(ss => ss.student_id !== student?.id).map(ss => ss.shift_code) || []
-                          return (
-                            <button
-                              key={s.id}
-                              onClick={() => { setFormData({ ...formData, seat_id: s.id }); setIsSeatDropdownOpen(false) }}
-                              type="button"
-                              className={cn("w-full flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors border",
-                                formData.seat_id === s.id ? "border-brand-500 bg-brand-50/50" : "border-transparent"
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-brand-900 w-10 text-left">{s.seat_number}</span>
-                                {idx === 0 && <span className="text-[10px] font-bold text-brand-500 ml-1 bg-brand-100 px-1.5 py-0.5 rounded">RECOMMENDED</span>}
-                              </div>
-                              <div className="flex gap-1 w-28">
-                                {['M', 'A', 'E', 'N'].map(shiftCode => {
-                                  const isOccupied = otherStudentsShifts.includes(shiftCode)
-                                  return (
-                                    <div key={shiftCode} className={cn(
-                                      "flex-1 py-1 rounded text-[10px] font-black text-center border",
-                                      isOccupied ? "bg-red-50 text-red-600 border-red-200" : "bg-green-50 text-green-600 border-green-200"
-                                    )}>
-                                      {shiftCode}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSeatDropdownOpen(!isSeatDropdownOpen)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none flex justify-between items-center"
+                >
+                  <span className="font-bold text-gray-800">
+                    {formData.seat_id 
+                      ? `Seat ${filteredSeats.find(s => s.id === formData.seat_id)?.seat_number || ''}` 
+                      : 'Select a seat...'}
+                  </span>
+                  <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", isSeatDropdownOpen && "rotate-180")} />
+                </button>
+                
+                {isSeatDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-50 p-2 space-y-1">
+                    {filteredSeats.map((s, idx) => {
+                      const isRecommended = s.isAvailable && !filteredSeats.slice(0, idx).some(prev => prev.isAvailable)
+                      const isCurrent = formData.seat_id === s.id
+                      return (
+                        <button
+                          key={s.id}
+                          disabled={!s.isAvailable && !isCurrent}
+                          onClick={() => { setFormData({ ...formData, seat_id: s.id }); setIsSeatDropdownOpen(false) }}
+                          type="button"
+                          className={cn("w-full flex items-center justify-between p-3 rounded-lg transition-colors border",
+                            isCurrent ? "border-brand-500 bg-brand-50/50" : "border-transparent",
+                            (!s.isAvailable && !isCurrent) ? "opacity-40 grayscale cursor-not-allowed bg-gray-50" : "hover:bg-gray-50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-brand-900 w-10 text-left">{s.seat_number}</span>
+                            {isRecommended && <span className="text-[10px] font-bold text-brand-500 ml-1 bg-brand-100 px-1.5 py-0.5 rounded">RECOMMENDED</span>}
+                            {!s.isAvailable && !isCurrent && <span className="text-[8px] font-bold text-red-500 ml-1 bg-red-50 px-1.5 py-0.5 rounded">BUSY</span>}
+                            {isCurrent && <span className="text-[10px] font-bold text-brand-600 ml-1 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-100">CURRENT</span>}
+                          </div>
+                          <div className="flex gap-1 w-28">
+                            {['M', 'A', 'E', 'N'].map(shiftCode => {
+                              const isOccupied = s.activeBookedShifts?.includes(shiftCode)
+                              const isRequested = formData.shifts.includes(shiftCode)
+                              return (
+                                <div key={shiftCode} className={cn(
+                                  "flex-1 py-1 rounded text-[10px] font-black text-center border",
+                                  isOccupied ? "bg-red-50 text-red-600 border-red-200" : 
+                                  isRequested ? "bg-brand-500 text-white border-brand-600" :
+                                  "bg-green-50 text-green-600 border-green-200"
+                                )}>
+                                  {shiftCode}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <div className="p-4 text-center border-2 border-dashed border-gray-100 rounded-xl text-gray-400 text-xs italic">
                 Select shifts first to see available seats.
