@@ -123,42 +123,36 @@ export async function submitNewAdmission(data: any) {
     const amountPaid = Number(data.amount_paid || 0)
     const discountAmt = Number(data.discount_amount || 0)
 
-    if (data.payment_status === 'paid') {
-      await insertFinancialEvent(adminClient, {
-        library_id: data.library_id, student_id: newStudent.id, student_name: data.name,
-        event_type: 'ADMISSION_FULL', amount: totalFee, pending_amount: 0,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Full payment admission. Seat: ${data.shift_display}`
-      })
-    } else if (data.payment_status === 'partial') {
-      await insertFinancialEvent(adminClient, {
-        library_id: data.library_id, student_id: newStudent.id, student_name: data.name,
-        event_type: 'ADMISSION_PARTIAL', amount: amountPaid, pending_amount: totalFee - amountPaid,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Partial payment. Paid: ₹${amountPaid}, Due: ₹${totalFee - amountPaid}. Seat: ${data.shift_display}`
-      })
+    let eventType = 'ADMISSION_FULL'
+    let eventAmount = totalFee
+    let eventPending = 0
+
+    if (data.payment_status === 'partial') {
+      eventType = 'ADMISSION_PARTIAL'
+      eventAmount = amountPaid
+      eventPending = totalFee - amountPaid
     } else if (data.payment_status === 'pending') {
-      await insertFinancialEvent(adminClient, {
-        library_id: data.library_id, student_id: newStudent.id, student_name: data.name,
-        event_type: 'ADMISSION_PENDING', amount: 0, pending_amount: totalFee,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Pending admission. Full fee: ₹${totalFee}. Seat: ${data.shift_display}`
-      })
+      eventType = 'ADMISSION_PENDING'
+      eventAmount = 0
+      eventPending = totalFee
     } else if (data.payment_status === 'discounted') {
-      const paidAfterDiscount = totalFee - discountAmt
-      await insertFinancialEvent(adminClient, {
-        library_id: data.library_id, student_id: newStudent.id, student_name: data.name,
-        event_type: 'ADMISSION_FULL', amount: paidAfterDiscount, pending_amount: 0,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Discounted admission. Actual: ₹${totalFee}, Paid: ₹${paidAfterDiscount}. Seat: ${data.shift_display}`
-      })
-      await insertFinancialEvent(adminClient, {
-        library_id: data.library_id, student_id: newStudent.id, student_name: data.name,
-        event_type: 'DISCOUNT_APPLIED', amount: -discountAmt, pending_amount: 0,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Discount of ₹${discountAmt} applied`
-      })
+      eventType = 'ADMISSION_FULL' // Discounted is treated as full payment of the net amount
+      eventAmount = totalFee - discountAmt
+      eventPending = 0
     }
+
+    await insertFinancialEvent(adminClient, {
+      library_id: data.library_id, 
+      student_id: newStudent.id, 
+      student_name: data.name,
+      event_type: eventType, 
+      amount: eventAmount, 
+      pending_amount: eventPending,
+      payment_mode: 'cash', 
+      actor_role: staffRole, 
+      actor_name: staffName,
+      note: `${data.payment_status.toUpperCase()} admission. Seat: ${data.shift_display}${discountAmt > 0 ? `. Discount: ₹${discountAmt}` : ''}`
+    })
 
     // 6. Insert Notification
     await adminClient.from('notifications').insert({
@@ -196,6 +190,15 @@ export async function updateStudent(studentId: string, data: any) {
       throw new Error('This seat or some of its shifts are already occupied by another student.')
     }
 
+    // 0. Get current student details for comparison
+    const { data: currentStudent } = await adminClient
+      .from('students')
+      .select('amount_paid, total_fee, library_id, discount_amount, payment_status')
+      .eq('id', studentId)
+      .single()
+
+    if (!currentStudent) throw new Error('Student not found')
+
     // 1. Update Student
     const { error: studentError } = await adminClient
       .from('students')
@@ -206,6 +209,8 @@ export async function updateStudent(studentId: string, data: any) {
         phone: data.phone || null,
         gender: data.gender,
         payment_status: data.payment_status,
+        amount_paid: data.amount_paid || 0,
+        discount_amount: data.discount_amount || 0,
         seat_id: data.seat_id,
         locker_id: data.has_locker ? data.locker_id : null,
         shift_display: data.shifts.sort().join('+'),
@@ -214,6 +219,29 @@ export async function updateStudent(studentId: string, data: any) {
       .eq('id', studentId)
 
     if (studentError) throw new Error(`Student update failed: ${studentError.message}`)
+
+    // 1.5 RECORD FINANCIAL EVENT IF PAYMENT UPDATED
+    const oldPaid = Number(currentStudent.amount_paid || 0)
+    const newPaid = Number(data.amount_paid || 0)
+    const extraPaid = newPaid - oldPaid
+
+    if (extraPaid > 0) {
+      const staffName = staffDetails?.name || 'Staff'
+      const staffRole = staffDetails?.role || 'staff'
+      
+      await insertFinancialEvent(adminClient, {
+        library_id: currentStudent.library_id,
+        student_id: studentId,
+        student_name: data.name,
+        event_type: 'PAYMENT_RECEIVED',
+        amount: extraPaid,
+        pending_amount: Number(currentStudent.total_fee || 0) - newPaid,
+        payment_mode: 'cash',
+        actor_role: staffRole,
+        actor_name: staffName,
+        note: `Additional payment received. Old Paid: ₹${oldPaid}, New Paid: ₹${newPaid}. Status: ${data.payment_status.toUpperCase()}`
+      })
+    }
 
     // 2. Update Shifts (Delete old, insert new)
     const { error: deleteShiftsError } = await adminClient
@@ -342,6 +370,12 @@ export async function renewStudent(data: any) {
     const { data: renewedStudent } = await adminClient.from('students').select('library_id, name').eq('id', data.student_id).single()
     
     if (renewedStudent) {
+      const staffName = staffDetails?.name || 'Staff'
+      const staffRole = staffDetails?.role || 'staff'
+      const totalFee = Number(data.total_fee || 0)
+      const amountPaid = Number(data.amount_paid || 0)
+      const discountAmt = Number(data.discount_amount || 0)
+
       let eventType = 'RENEWAL'
       let eventAmount = totalFee
       let eventPending = 0
@@ -354,23 +388,21 @@ export async function renewStudent(data: any) {
         eventPending = totalFee
       } else if (data.payment_status === 'discounted') {
         eventAmount = totalFee - discountAmt
+        eventPending = 0
       }
 
       await insertFinancialEvent(adminClient, {
-        library_id: renewedStudent.library_id, student_id: data.student_id, student_name: renewedStudent.name,
-        event_type: eventType, amount: eventAmount, pending_amount: eventPending,
-        payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-        note: `Renewed for ${data.plan_months} month(s). Fee: ₹${totalFee} (${data.payment_status}). Seat: ${data.shift_display}`
+        library_id: renewedStudent.library_id, 
+        student_id: data.student_id, 
+        student_name: renewedStudent.name,
+        event_type: eventType, 
+        amount: eventAmount, 
+        pending_amount: eventPending,
+        payment_mode: 'cash', 
+        actor_role: staffRole, 
+        actor_name: staffName,
+        note: `Renewed for ${data.plan_months} month(s). Fee: ₹${totalFee} (${data.payment_status.toUpperCase()}). Seat: ${data.shift_display}${discountAmt > 0 ? `. Discount: ₹${discountAmt}` : ''}`
       })
-
-      if (data.payment_status === 'discounted' && discountAmt > 0) {
-        await insertFinancialEvent(adminClient, {
-          library_id: renewedStudent.library_id, student_id: data.student_id, student_name: renewedStudent.name,
-          event_type: 'DISCOUNT_APPLIED', amount: -discountAmt, pending_amount: 0,
-          payment_mode: 'cash', actor_role: staffRole, actor_name: staffName,
-          note: `Renewal discount of ₹${discountAmt} applied`
-        })
-      }
 
       // 7. Insert Notification
       await adminClient.from('notifications').insert({
