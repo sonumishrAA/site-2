@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
+import { callEdgeFunction } from '@/lib/api'
 
 export default function ChangePasswordPage() {
   const [password, setPassword] = useState('')
@@ -39,11 +40,11 @@ export default function ChangePasswordPage() {
       setError(updateError.message)
       setLoading(false)
     } else {
-      // Clear staff.force_password_change via server route (bypasses RLS).
+      // Clear staff.force_password_change via edge function
       try {
-        const res = await fetch('/api/staff/clear-force-password-change', { method: 'POST' })
-        const data = await res.json().catch(() => ({} as any))
-        if (!res.ok) throw new Error(data?.error || 'Failed to update staff profile')
+        await callEdgeFunction('clear-password-flag', {
+          method: 'POST'
+        })
       } catch (err: any) {
         setError(err?.message || 'Password updated, but profile update failed. Please try again.')
         setLoading(false)

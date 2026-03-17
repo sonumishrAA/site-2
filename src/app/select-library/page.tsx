@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { Building2, CheckCircle2, AlertTriangle, Clock, ChevronRight, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { callEdgeFunction } from '@/lib/api'
 
 interface Library {
   id: string
@@ -95,14 +96,10 @@ export default function SelectLibraryPage() {
 
       setLoadingAction(lib.id)
       try {
-        const res = await fetch('/api/generate-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ library_id: lib.id, purpose: 'renew' })
+        const data = await callEdgeFunction('generate-token', {
+          body: { library_id: lib.id, purpose: 'renew' },
+          libraryId: lib.id
         })
-        const data = await res.json()
-        
-        if (!res.ok) throw new Error(data.error)
         
         // Redirect to Site 1
         window.location.href = `https://libraryos.in/renew?token=${data.token}`

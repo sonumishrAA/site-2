@@ -5,6 +5,7 @@ import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plu
 import { cn } from '@/lib/utils'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { callEdgeFunction } from '@/lib/api'
 
 interface SettingsClientProps {
   user: any
@@ -169,14 +170,10 @@ export default function SettingsClient({
 
     setLoadingAction('add-library')
     try {
-      const res = await fetch('/api/generate-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'add-library' })
+      const data = await callEdgeFunction('generate-token', {
+        body: { purpose: 'add-library' },
+        libraryId: library.id
       })
-      const data = await res.json()
-      
-      if (!res.ok) throw new Error(data.error)
       
       window.location.href = `https://libraryos.in/add-library?token=${data.token}`
     } catch (err: any) {
