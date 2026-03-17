@@ -9,6 +9,8 @@ interface ShiftStat {
   code: string
   name: string
   active: number
+  male?: number
+  female?: number
   total: number
 }
 
@@ -39,7 +41,23 @@ export default function ShiftOccupancyCard({ shifts }: { shifts: ShiftStat[] }) 
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{s.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{s.name}</span>
+                    {(s.male !== undefined || s.female !== undefined) && (
+                      <div className="flex items-center gap-1.5 opacity-60">
+                         {s.male! > 0 && (
+                          <span className="text-[9px] font-bold text-blue-600 flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{s.male} M
+                          </span>
+                         )}
+                         {s.female! > 0 && (
+                          <span className="text-[9px] font-bold text-pink-600 flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>{s.female} F
+                          </span>
+                         )}
+                      </div>
+                    )}
+                  </div>
                   <span className={cn("text-xs font-black", mono.className, colors.text)}>
                     {s.active}/{s.total}
                   </span>

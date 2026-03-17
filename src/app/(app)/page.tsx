@@ -54,8 +54,8 @@ export default async function DashboardPage() {
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).gte('admission_date', monthStart).lte('admission_date', monthEnd),
     // Library shifts config
     supabase.from('shifts').select('code, name').eq('library_id', libraryId),
-    // Active shift occupancy (count per shift)
-    supabase.from('students').select('selected_shifts').eq('library_id', libraryId).gte('end_date', today),
+    // Active shift occupancy (count per shift with gender)
+    supabase.from('students').select('selected_shifts, gender').eq('library_id', libraryId).gte('end_date', today),
     // Total seats
     supabase.from('seats').select('*', { count: 'exact', head: true }).eq('library_id', libraryId).eq('is_active', true),
     // Financial: Collected this month (positive amounts)
@@ -113,11 +113,16 @@ export default async function DashboardPage() {
   const shiftCodes = shifts?.map(s => s.code) || ['M', 'A', 'E', 'N']
   const shiftNames: Record<string, string> = { M: 'Morning', A: 'Afternoon', E: 'Evening', N: 'Night' }
   const shiftStats = shiftCodes.map(code => {
-    const activeInShift = shiftOccupancy?.filter((s: any) => s.selected_shifts?.includes(code)).length || 0
+    const studentsInShift = shiftOccupancy?.filter((s: any) => s.selected_shifts?.includes(code)) || []
+    const maleCount = studentsInShift.filter((s: any) => s.gender === 'male').length
+    const femaleCount = studentsInShift.filter((s: any) => s.gender === 'female').length
+    
     return {
       code,
       name: shifts?.find(s => s.code === code)?.name || shiftNames[code] || code,
-      active: activeInShift,
+      active: studentsInShift.length,
+      male: maleCount,
+      female: femaleCount,
       total: totalSeats || 0,
     }
   })
