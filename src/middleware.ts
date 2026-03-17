@@ -39,16 +39,11 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: staff } = await supabase
       .from('staff')
-      .select('force_password_change, role, library_ids')
+      .select('role, library_ids')
       .eq('user_id', user.id)
       .single()
 
-    // 1. Force password change check
-    if (staff?.force_password_change && !request.nextUrl.pathname.startsWith('/change-password')) {
-      return NextResponse.redirect(new URL('/change-password', request.url))
-    }
-
-    // 2. Library selection check (2+ libraries, no library selected)
+    // 1. Library selection check (2+ libraries, no library selected)
     const bypassAll = ['/renew', '/blocked', '/change-password', '/select-library', '/api']
     const isBypass = bypassAll.some(r => request.nextUrl.pathname.startsWith(r))
 
