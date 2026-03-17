@@ -70,7 +70,7 @@ export default function RenewStudentSheet({ isOpen, onClose, student }: RenewStu
     const { data: { user } } = await supabaseBrowser.auth.getUser()
     if (!user) return
 
-    const cookieLibId = document.cookie.match(/selected_library_id=([^;]+)/)?.[1]
+    const cookieLibId = document.cookie.match(/active_library_id=([^;]+)/)?.[1]
     const { data: staff } = await supabaseBrowser
       .from('staff')
       .select('library_ids')

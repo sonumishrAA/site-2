@@ -65,7 +65,7 @@ export default function NewAdmissionSheet({ isOpen, onClose }: { isOpen: boolean
     if (!user) return
 
     // Get library from cookie first (multi-library support)
-    const cookieLibId = document.cookie.match(/selected_library_id=([^;]+)/)?.[1]
+    const cookieLibId = document.cookie.match(/active_library_id=([^;]+)/)?.[1]
 
     const { data: staff } = await supabaseBrowser
       .from('staff')
