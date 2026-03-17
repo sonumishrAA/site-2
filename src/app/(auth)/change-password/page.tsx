@@ -3,12 +3,28 @@
 import { useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { LogOut } from 'lucide-react'
 
 export default function ChangePasswordPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  async function handleLogout() {
+    setLoading(true)
+    setError(null)
+    try {
+      await supabaseBrowser.auth.signOut()
+      document.cookie = 'active_library_id=; path=/; max-age=0'
+      router.push('/login')
+      router.refresh()
+    } catch {
+      setError('Unable to sign out. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,14 +39,15 @@ export default function ChangePasswordPage() {
       setError(updateError.message)
       setLoading(false)
     } else {
-      // Also update staff table to set force_password_change = false
-      const { data: { session } } = await supabaseBrowser.auth.getSession()
-      const user = session?.user
-      if (user) {
-        await supabaseBrowser
-          .from('staff')
-          .update({ force_password_change: false })
-          .eq('user_id', user.id)
+      // Clear staff.force_password_change via server route (bypasses RLS).
+      try {
+        const res = await fetch('/api/staff/clear-force-password-change', { method: 'POST' })
+        const data = await res.json().catch(() => ({} as any))
+        if (!res.ok) throw new Error(data?.error || 'Failed to update staff profile')
+      } catch (err: any) {
+        setError(err?.message || 'Password updated, but profile update failed. Please try again.')
+        setLoading(false)
+        return
       }
       
       router.push('/')
@@ -41,9 +58,21 @@ export default function ChangePasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
-        <div className="text-center">
-          <h1 className="text-2xl font-serif text-brand-900">Change Password</h1>
-          <p className="mt-2 text-sm text-gray-600">You are required to change your password on first login.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-left">
+            <h1 className="text-2xl font-serif text-brand-900">Change Password</h1>
+            <p className="mt-2 text-sm text-gray-600">You are required to change your password on first login.</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loading}
+            className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 border border-gray-100 disabled:opacity-50"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
         </div>
 
         {error && (
