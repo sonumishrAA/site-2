@@ -2,6 +2,19 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
+
+export async function setActiveLibrary(libraryId: string) {
+  const cookieStore = await cookies()
+  cookieStore.set('active_library_id', libraryId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    httpOnly: true,
+    sameSite: 'lax',
+  })
+  revalidatePath('/', 'layout')
+}
+
 
 // ─── Financial Event Helper (Append-Only Ledger) ───
 async function insertFinancialEvent(client: any, data: {

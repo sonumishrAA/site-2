@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { Bell, ChevronDown, Building2 } from 'lucide-react'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
+import { setActiveLibrary } from '@/app/actions'
 
 interface Library {
   id: string
@@ -16,6 +18,8 @@ export default function AppHeader() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -92,6 +96,10 @@ export default function AppHeader() {
                     onClick={() => {
                       setCurrentLib(lib)
                       setIsDropdownOpen(false)
+                      startTransition(async () => {
+                        await setActiveLibrary(lib.id)
+                        router.refresh()
+                      })
                     }}
                     className={cn(
                       "w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors",

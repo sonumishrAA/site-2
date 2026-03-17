@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import InteractiveGrid from "@/components/SeatMap/InteractiveGrid";
 import { getSeatStatus, daysUntil, sortSeats } from "@/lib/utils";
+import { getActiveLibraryId } from "@/lib/getActiveLibrary";
 
 export default async function SeatMapPage() {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export default async function SeatMapPage() {
     .eq("user_id", user.id)
     .single();
 
-  const libraryId = staff?.library_ids?.[0];
+  const libraryId = await getActiveLibraryId(user.id, staff?.library_ids || []);
   if (!libraryId) return <div>No library assigned.</div>;
 
   // Fetch seats with students AND per-shift occupancy

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import StudentHeader from '@/components/Students/StudentHeader'
 import StudentList from '@/components/Students/StudentList'
+import { getActiveLibraryId } from '@/lib/getActiveLibrary'
 
 export default async function StudentsPage({
   searchParams,
@@ -21,13 +22,7 @@ export default async function StudentsPage({
     .eq('user_id', user.id)
     .single()
 
-  let libraryId = staff?.library_ids?.[0]
-
-  if (!libraryId) {
-    const { data: owned } = await supabase.from('libraries').select('id').eq('owner_id', user.id).limit(1)
-    libraryId = owned?.[0]?.id
-  }
-
+  const libraryId = await getActiveLibraryId(user.id, staff?.library_ids || [])
   if (!libraryId) return <div className="p-8 text-center text-gray-500 italic">No library context found.</div>
 
   const currentFilter = resolvedParams.filter || 'all'

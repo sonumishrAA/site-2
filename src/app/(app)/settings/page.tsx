@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SettingsClient from '@/components/Settings/SettingsClient'
+import { getActiveLibraryId } from '@/lib/getActiveLibrary'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ export default async function SettingsPage() {
     .eq('user_id', user.id)
     .single()
 
-  let libraryId = ownedLibraries?.[0]?.id || profile?.library_ids?.[0]
+  const libraryId = await getActiveLibraryId(user.id, profile?.library_ids || [])
 
   if (!libraryId) return <div className="p-8 text-center text-gray-500 italic font-medium">No library assigned to this account.</div>
 

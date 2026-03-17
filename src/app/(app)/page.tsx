@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { daysUntil } from '@/lib/utils'
 import Link from 'next/link'
+import { getActiveLibraryId } from '@/lib/getActiveLibrary'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -18,7 +19,7 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .single()
 
-  const libraryId = staff?.library_ids?.[0]
+  const libraryId = await getActiveLibraryId(user.id, staff?.library_ids || [])
   if (!libraryId) return <div>No library assigned.</div>
 
   // Current month boundaries

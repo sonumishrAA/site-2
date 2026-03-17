@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NotificationsClient from './NotificationsClient'
+import { getActiveLibraryId } from '@/lib/getActiveLibrary'
 
 export default async function NotificationsPage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function NotificationsPage() {
     .eq('user_id', user.id)
     .single()
 
-  const libraryId = staff?.library_ids?.[0]
+  const libraryId = await getActiveLibraryId(user.id, staff?.library_ids || [])
   if (!libraryId) return <div className="p-8 text-center text-gray-500 italic">No library assigned.</div>
 
   const { data: notifications } = await supabase
