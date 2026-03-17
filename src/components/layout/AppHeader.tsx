@@ -18,6 +18,7 @@ export default function AppHeader() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [profile, setProfile] = useState<{ name: string; role: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -32,28 +33,31 @@ export default function AppHeader() {
 
       const { data: staff } = await supabaseBrowser
         .from('staff')
-        .select('library_ids')
+        .select('library_ids, name, role')
         .eq('user_id', user.id)
         .single()
 
-      if (staff?.library_ids) {
-        const { data: libs } = await supabaseBrowser
-          .from('libraries')
-          .select('id, name')
-          .in('id', staff.library_ids)
+      if (staff) {
+        setProfile({ name: staff.name, role: staff.role })
+        if (staff.library_ids) {
+          const { data: libs } = await supabaseBrowser
+            .from('libraries')
+            .select('id, name')
+            .in('id', staff.library_ids)
 
-        if (libs) {
-          setLibraries(libs)
-          setCurrentLib(libs[0])
-          
-          // Fetch unread notifications count
-          const { count } = await supabaseBrowser
-            .from('notifications')
-            .select('*', { count: 'exact', head: true })
-            .eq('library_id', libs[0].id)
-            .eq('is_read', false)
-          
-          setUnreadCount(count || 0)
+          if (libs) {
+            setLibraries(libs)
+            setCurrentLib(libs[0])
+            
+            // Fetch unread notifications count
+            const { count } = await supabaseBrowser
+              .from('notifications')
+              .select('*', { count: 'exact', head: true })
+              .eq('library_id', libs[0].id)
+              .eq('is_read', false)
+            
+            setUnreadCount(count || 0)
+          }
         }
       }
       setLoading(false)
@@ -130,9 +134,15 @@ export default function AppHeader() {
             </span>
           )}
         </button>
-        <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white shadow-sm overflow-hidden">
-          <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-500 bg-gray-100 uppercase">
-            {loading ? '..' : (currentLib?.name.slice(0, 2) || 'OP')}
+        <div className="flex items-center gap-2">
+          <div className="text-right hidden xs:block">
+            <p className="text-[10px] font-bold text-gray-900 truncate max-w-[80px] leading-tight">{profile?.name || 'User'}</p>
+            <p className="text-[8px] font-black text-brand-500 uppercase tracking-widest">{profile?.role || '...'}</p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white shadow-sm overflow-hidden shrink-0">
+            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-500 bg-gray-100 uppercase">
+              {loading ? '..' : (profile?.name.slice(0, 2) || 'OP')}
+            </div>
           </div>
         </div>
       </div>

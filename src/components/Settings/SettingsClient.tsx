@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info, LogOut } from 'lucide-react'
+import { Building2, Clock, CreditCard, User, ShieldCheck, Grid, Lock, Users, Plus, Edit2, ChevronDown, MapPin, Map, Users2, Info, LogOut, X, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -26,21 +26,135 @@ interface SettingsClientProps {
 export default function SettingsClient({
   user,
   profile,
-  library,
-  shifts,
-  comboPlans,
-  lockerPolicy,
+  library: initialLibrary,
+  shifts: initialShifts,
+  comboPlans: initialComboPlans,
+  lockerPolicy: initialLockerPolicy,
   stats,
   staffMembers,
   allOwnedLibraries
 }: SettingsClientProps) {
   const router = useRouter()
+  const [library, setLibrary] = useState(initialLibrary)
+  const [shifts, setShifts] = useState(initialShifts)
+  const [comboPlans, setComboPlans] = useState(initialComboPlans)
+  const [lockerPolicy, setLockerPolicy] = useState(initialLockerPolicy)
+  
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  
+  // Edit Modals State
+  const [editModal, setEditModal] = useState<'inventory' | 'lockers' | 'shifts' | 'pricing' | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Form States
+  const [inventoryForm, setInventoryForm] = useState({
+    male_seats: library?.male_seats || 0,
+    female_seats: library?.female_seats || 0,
+    neutral_seats: library?.neutral_seats || 0
+  })
+  const [lockersForm, setLockersForm] = useState({
+    male_lockers: library?.male_lockers || 0,
+    female_lockers: library?.female_lockers || 0,
+    neutral_lockers: library?.neutral_lockers || 0,
+    monthly_fee: lockerPolicy?.monthly_fee || 0
+  })
+  const [shiftsForm, setShiftsForm] = useState(shifts.map(s => ({ ...s })))
+  const [pricingForm, setPricingForm] = useState(comboPlans.map(p => ({ ...p })))
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section)
+  }
+
+  async function handleUpdateInventory() {
+    setIsSaving(true)
+    const { error } = await supabaseBrowser
+      .from('libraries')
+      .update({
+        male_seats: inventoryForm.male_seats,
+        female_seats: inventoryForm.female_seats,
+        neutral_seats: inventoryForm.neutral_seats
+      })
+      .eq('id', library.id)
+
+    if (error) alert(error.message)
+    else {
+      setLibrary({ ...library, ...inventoryForm })
+      setEditModal(null)
+      router.refresh()
+    }
+    setIsSaving(false)
+  }
+
+  async function handleUpdateLockers() {
+    setIsSaving(true)
+    const { error: libError } = await supabaseBrowser
+      .from('libraries')
+      .update({
+        male_lockers: lockersForm.male_lockers,
+        female_lockers: lockersForm.female_lockers,
+        neutral_lockers: lockersForm.neutral_lockers
+      })
+      .eq('id', library.id)
+
+    const { error: policyError } = await supabaseBrowser
+      .from('locker_policies')
+      .update({ monthly_fee: lockersForm.monthly_fee })
+      .eq('library_id', library.id)
+
+    if (libError || policyError) alert(libError?.message || policyError?.message)
+    else {
+      setLibrary({ ...library, ...lockersForm })
+      setLockerPolicy({ ...lockerPolicy, monthly_fee: lockersForm.monthly_fee })
+      setEditModal(null)
+      router.refresh()
+    }
+    setIsSaving(false)
+  }
+
+  async function handleUpdateShifts() {
+    setIsSaving(true)
+    let hasError = false
+    for (const s of shiftsForm) {
+      const { error } = await supabaseBrowser
+        .from('shifts')
+        .update({ start_time: s.start_time, end_time: s.end_time })
+        .eq('id', s.id)
+      if (error) {
+        alert(error.message)
+        hasError = true
+        break
+      }
+    }
+    if (!hasError) {
+      setShifts(shiftsForm)
+      setEditModal(null)
+      router.refresh()
+    }
+    setIsSaving(false)
+  }
+
+  async function handleUpdatePricing() {
+    setIsSaving(true)
+    let hasError = false
+    for (const p of pricingForm) {
+      const { error } = await supabaseBrowser
+        .from('combo_plans')
+        .update({ fee: p.fee })
+        .eq('id', p.id)
+      if (error) {
+        alert(error.message)
+        hasError = true
+        break
+      }
+    }
+    if (!hasError) {
+      setComboPlans(pricingForm)
+      setEditModal(null)
+      router.refresh()
+    }
+    setIsSaving(false)
   }
 
   async function handleAddLibrary() {
@@ -120,6 +234,17 @@ export default function SettingsClient({
       value: `${shifts?.length || 0} Shifts`,
       content: (
         <div className="pt-4 space-y-4 text-left border-t border-gray-50 mt-2">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-[9px] text-gray-400 italic">Timings for each base shift.</p>
+            {profile?.role === 'owner' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setEditModal('shifts') }}
+                className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             {shifts?.map(shift => (
               <div key={shift.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
@@ -135,7 +260,6 @@ export default function SettingsClient({
               </div>
             ))}
           </div>
-          <p className="text-[9px] text-gray-400 italic text-center">Timings are configured for each base shift.</p>
         </div>
       )
     },
@@ -147,6 +271,17 @@ export default function SettingsClient({
       value: `${comboPlans?.length || 0} active plans`,
       content: (
         <div className="pt-4 space-y-4 text-left border-t border-gray-50 mt-2">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-[9px] text-gray-400 italic">Prices shown are per student.</p>
+            {profile?.role === 'owner' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setEditModal('pricing') }}
+                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto -mx-5 px-5 scrollbar-hide">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -272,7 +407,10 @@ export default function SettingsClient({
               </div>
             </div>
             {profile?.role === 'owner' && (
-              <button className="p-2.5 bg-gray-50 rounded-xl text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-all">
+              <button 
+                onClick={() => setEditModal('inventory')}
+                className="p-2.5 bg-gray-50 rounded-xl text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-all"
+              >
                 <Edit2 className="w-4 h-4" />
               </button>
             )}
@@ -289,7 +427,10 @@ export default function SettingsClient({
               </div>
             </div>
             {profile?.role === 'owner' && (
-              <button className="p-2.5 bg-gray-50 rounded-xl text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-all">
+              <button 
+                onClick={() => setEditModal('lockers')}
+                className="p-2.5 bg-gray-50 rounded-xl text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-all"
+              >
                 <Edit2 className="w-4 h-4" />
               </button>
             )}
@@ -348,12 +489,9 @@ export default function SettingsClient({
                 </div>
 
                 {profile?.role === 'owner' && (
-                  <div className="grid grid-cols-2 border-t border-gray-50">
-                    <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:bg-gray-50 transition-colors border-r border-gray-50 flex items-center justify-center gap-2">
+                  <div className="border-t border-gray-50">
+                    <button className="w-full p-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
                       <Lock className="w-3.5 h-3.5" /> Reset Password
-                    </button>
-                    <button className="p-4 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-                      <Users className="w-3.5 h-3.5" /> Remove
                     </button>
                   </div>
                 )}
@@ -404,6 +542,169 @@ export default function SettingsClient({
           {loggingOut ? 'Logging out...' : 'Logout'}
         </button>
       </div>
+
+      {/* MODALS */}
+      {editModal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-serif text-xl text-brand-900">
+                {editModal === 'inventory' ? 'Edit Seat Inventory' :
+                 editModal === 'lockers' ? 'Edit Locker Policy' :
+                 editModal === 'shifts' ? 'Edit Shift Timings' :
+                 'Edit Plans & Pricing'}
+              </h3>
+              <button onClick={() => setEditModal(null)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+              {editModal === 'inventory' && (
+                <div className="space-y-4">
+                  {library?.is_gender_neutral ? (
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Neutral Seats</label>
+                      <input 
+                        type="number" 
+                        value={inventoryForm.neutral_seats}
+                        onChange={(e) => setInventoryForm({ ...inventoryForm, neutral_seats: parseInt(e.target.value) || 0 })}
+                        className="w-full mt-1 bg-gray-50 border border-gray-100 rounded-2xl p-4 font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Male Seats</label>
+                          <input 
+                            type="number" 
+                            value={inventoryForm.male_seats}
+                            onChange={(e) => setInventoryForm({ ...inventoryForm, male_seats: parseInt(e.target.value) || 0 })}
+                            className="w-full mt-1 bg-blue-50 border border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Female Seats</label>
+                          <input 
+                            type="number" 
+                            value={inventoryForm.female_seats}
+                            onChange={(e) => setInventoryForm({ ...inventoryForm, female_seats: parseInt(e.target.value) || 0 })}
+                            className="w-full mt-1 bg-pink-50 border border-pink-100 rounded-2xl p-4 font-bold text-pink-900 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <p className="text-[10px] text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                    NOTE: This only changes the capacity counts. Individual seat numbers are generated based on these totals.
+                  </p>
+                </div>
+              )}
+
+              {editModal === 'lockers' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Male</label>
+                      <input type="number" value={lockersForm.male_lockers} onChange={(e) => setLockersForm({ ...lockersForm, male_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Female</label>
+                      <input type="number" value={lockersForm.female_lockers} onChange={(e) => setLockersForm({ ...lockersForm, female_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Neutral</label>
+                      <input type="number" value={lockersForm.neutral_lockers} onChange={(e) => setLockersForm({ ...lockersForm, neutral_lockers: parseInt(e.target.value) || 0 })} className="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm font-bold" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Monthly Locker Fee (₹)</label>
+                    <input type="number" value={lockersForm.monthly_fee} onChange={(e) => setLockersForm({ ...lockersForm, monthly_fee: parseFloat(e.target.value) || 0 })} className="w-full mt-1 bg-amber-50 border border-amber-100 rounded-2xl p-4 font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
+                  </div>
+                </div>
+              )}
+
+              {editModal === 'shifts' && (
+                <div className="space-y-4">
+                  {shiftsForm.map((s, idx) => (
+                    <div key={s.id} className="p-4 bg-gray-50 rounded-[1.5rem] border border-gray-100 grid grid-cols-2 gap-4">
+                      <div className="col-span-2 flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-brand-900 text-white flex items-center justify-center text-[10px] font-bold">{s.code}</div>
+                        <p className="text-xs font-bold text-gray-900">{s.name}</p>
+                      </div>
+                      <div>
+                        <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Start Time</label>
+                        <input type="time" value={s.start_time} onChange={(e) => {
+                          const newShifts = [...shiftsForm]
+                          newShifts[idx].start_time = e.target.value
+                          setShiftsForm(newShifts)
+                        }} className="w-full mt-1 bg-white border rounded-xl p-2 text-xs font-bold" />
+                      </div>
+                      <div>
+                        <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">End Time</label>
+                        <input type="time" value={s.end_time} onChange={(e) => {
+                          const newShifts = [...shiftsForm]
+                          newShifts[idx].end_time = e.target.value
+                          setShiftsForm(newShifts)
+                        }} className="w-full mt-1 bg-white border rounded-xl p-2 text-xs font-bold" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {editModal === 'pricing' && (
+                <div className="space-y-3">
+                  {pricingForm.sort((a,b) => a.combination_key.length - b.combination_key.length || a.months - b.months).map((p, idx) => (
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black text-brand-700 font-mono w-8">{p.combination_key}</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase">{p.months}M</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">₹</span>
+                        <input 
+                          type="number" 
+                          value={p.fee}
+                          onChange={(e) => {
+                            const newPricing = [...pricingForm]
+                            newPricing[idx].fee = parseFloat(e.target.value) || 0
+                            setPricingForm(newPricing)
+                          }}
+                          className="w-20 bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold text-right"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+              <button 
+                onClick={() => setEditModal(null)}
+                className="flex-1 p-4 bg-white border border-gray-200 rounded-2xl font-bold text-gray-500 text-xs uppercase tracking-widest"
+              >
+                Cancel
+              </button>
+              <button 
+                disabled={isSaving}
+                onClick={() => {
+                  if (editModal === 'inventory') handleUpdateInventory()
+                  else if (editModal === 'lockers') handleUpdateLockers()
+                  else if (editModal === 'shifts') handleUpdateShifts()
+                  else if (editModal === 'pricing') handleUpdatePricing()
+                }}
+                className="flex-1 p-4 bg-brand-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+              >
+                {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
