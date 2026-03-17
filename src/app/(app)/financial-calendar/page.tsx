@@ -30,17 +30,18 @@ export default async function FinancialCalendarPage({
   const mYear = parseInt(startOfMonthStr.split('-')[0])
   const mMonth = parseInt(startOfMonthStr.split('-')[1]) - 1
 
-  const monthStart = new Date(mYear, mMonth, 1).toISOString().split('T')[0]
-  const monthEnd = new Date(mYear, mMonth + 1, 0, 23, 59, 59).toISOString()
+  // Ensure we compare the exact string boundaries like in page.tsx
+  const monthStartDisplay = new Date(mYear, mMonth, 1).toISOString().split('T')[0]
+  const monthEndDisplay = new Date(mYear, mMonth + 1, 0).toISOString().split('T')[0]
 
   // Fetch financial events with student details
   const { data: events } = await supabase
     .from('financial_events')
     .select('*, students(name, phone)')
     .eq('library_id', libraryId)
-    .gte('created_at', monthStart)
-    .lte('created_at', monthEnd)
+    .gte('created_at', monthStartDisplay)
+    .lte('created_at', monthEndDisplay + 'T23:59:59')
     .order('created_at', { ascending: false })
 
-  return <FinancialCalendarClient events={events || []} currentMonth={monthStart} />
+  return <FinancialCalendarClient events={events || []} currentMonth={monthStartDisplay} />
 }
